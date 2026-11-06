@@ -74,8 +74,36 @@ const authorize = (...roles) => {
   };
 };
 
+/**
+ * Middleware for optional authentication: sets req.user if valid token provided, but does not block if not
+ */
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return next();
+    }
+    const token = authHeader.split(' ')[1];
+    if (!token) return next();
+
+    try {
+      const decoded = jwt.verify(token, env.JWT_SECRET);
+      const user = await User.findById(decoded.id).select('-password').lean();
+      if (user) {
+        req.user = user;
+      }
+    } catch {
+      // Ignore token failure in optional auth
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   authenticate,
   protect: authenticate,
+  optionalAuthenticate,
   authorize,
 };

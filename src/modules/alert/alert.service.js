@@ -1,5 +1,6 @@
 const Alert = require('./alert.model');
 const Property = require('../property/property.model');
+const notificationService = require('../notification/notification.service');
 
 class AlertService {
   formatAlert(doc) {
@@ -181,6 +182,24 @@ class AlertService {
         { _id: { $in: matchedAlertIds } },
         { $inc: { matchCount: 1 } }
       );
+
+      // Dispatch notifications to alert owners
+      for (const alert of activeAlerts) {
+        if (matchedAlertIds.includes(alert._id) && alert.userId) {
+          notificationService
+            .createAndSendNotification({
+              userId: alert.userId,
+              title: `নতুন বাসা পাওয়া গেছে: ${property.area}`,
+              body: `${property.title} (ভাড়া: ৳${property.rentPrice}) আপনার "${alert.title}" অ্যালার্টের সাথে মিলেছে!`,
+              type: 'ALERT_MATCH',
+              data: {
+                propertyId: property._id,
+                action: 'VIEW_PROPERTY',
+              },
+            })
+            .catch((err) => console.error('[Alert Notification Error]:', err.message));
+        }
+      }
     }
 
     return matchedAlertIds.length;

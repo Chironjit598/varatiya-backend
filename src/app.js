@@ -10,6 +10,7 @@ const propertyRoutes = require('./modules/property/property.routes');
 const messRoutes = require('./modules/mess/mess.routes');
 const familyExpenseRoutes = require('./modules/family-expense/familyExpense.routes');
 const alertRoutes = require('./modules/alert/alert.routes');
+const notificationRoutes = require('./modules/notification/notification.routes');
 const uploadRoutes = require('./modules/upload/upload.routes');
 const { notFoundHandler, errorHandler } = require('./middlewares/error.middleware');
 const { generalRateLimiter } = require('./middlewares/rateLimiter');
@@ -76,6 +77,7 @@ app.get('/', (req, res) => {
       messes: '/api/messes',
       familyExpenses: '/api/family-expenses',
       alerts: '/api/alerts',
+      notifications: '/api/notifications',
       upload: '/api/upload',
     },
   });
@@ -91,6 +93,7 @@ app.use('/api/properties', propertyRoutes);
 app.use('/api/messes', messRoutes);
 app.use('/api/family-expenses', familyExpenseRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 
 // Catch 404 and forward to error handler

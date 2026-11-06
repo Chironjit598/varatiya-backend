@@ -2,6 +2,7 @@ const os = require('os');
 const app = require('./app');
 const env = require('./config/env');
 const { connectDB, closeDB } = require('./config/db');
+const reEngagementWorker = require('./modules/notification/reEngagement.worker');
 
 let server;
 
@@ -38,7 +39,11 @@ const startServer = async () => {
       console.log(`🛏️  Mess API:        http://${localIp}:${env.PORT}/api/messes`);
       console.log(`👨‍👩‍👧 Family Expense:  http://${localIp}:${env.PORT}/api/family-expenses`);
       console.log(`🔔 Alerts API:      http://${localIp}:${env.PORT}/api/alerts`);
+      console.log(`📨 Notifications:   http://${localIp}:${env.PORT}/api/notifications`);
       console.log(`=================================================\n`);
+
+      // 3. Start Smart Background Re-engagement Worker
+      reEngagementWorker.start();
     });
   } catch (error) {
     console.error(`[Server Startup Failure] ${error.message}`);
@@ -51,6 +56,8 @@ const startServer = async () => {
  */
 const gracefulShutdown = (signal) => {
   console.log(`\n[${signal}] Initiating graceful shutdown...`);
+
+  reEngagementWorker.stop();
 
   if (server) {
     server.close(async () => {

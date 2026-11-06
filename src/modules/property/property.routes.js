@@ -1,6 +1,6 @@
 const express = require('express');
 const propertyController = require('./property.controller');
-const { protect } = require('../../middlewares/auth.middleware');
+const { protect, optionalAuthenticate } = require('../../middlewares/auth.middleware');
 const {
   handlePropertyImageUpload,
   uploadMultipleImages,
@@ -88,6 +88,7 @@ router.get(
  */
 router.get(
   '/:id',
+  optionalAuthenticate,
   validateObjectId,
   propertyController.getPropertyById
 );

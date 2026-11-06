@@ -1,4 +1,5 @@
 const propertyService = require('./property.service');
+const notificationService = require('../notification/notification.service');
 const ApiResponse = require('../../utils/apiResponse');
 
 class PropertyController {
@@ -49,6 +50,19 @@ class PropertyController {
   async getPropertyById(req, res, next) {
     try {
       const property = await propertyService.getPropertyById(req.params.id);
+
+      // Async record view tracking to build intelligent user interest profile
+      const userId = req.user ? req.user._id : null;
+      const deviceId = req.headers['x-device-id'] || req.query.deviceId || null;
+      if (userId || deviceId) {
+        notificationService
+          .recordPropertyView({
+            userId,
+            deviceId,
+            propertyId: req.params.id,
+          })
+          .catch((err) => console.error('[TrackView Error]:', err.message));
+      }
 
       return ApiResponse.success(res, {
         statusCode: 200,
