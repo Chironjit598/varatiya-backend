@@ -282,7 +282,14 @@ class NotificationService {
             action: data.action || 'VIEW_PROPERTY',
             type,
           },
-        }).catch((fcmErr) => console.error('[FCM Send Error]:', fcmErr.message));
+        })
+          .then((res) => {
+            if (res && res.isTokenDead) {
+              console.log(`[FCM Auto-Clean] Clearing expired/invalid token for user ${userId}`);
+              User.findByIdAndUpdate(userId, { fcmToken: null }).catch(() => {});
+            }
+          })
+          .catch((fcmErr) => console.error('[FCM Send Error]:', fcmErr.message));
       }
     } catch (pushErr) {
       console.error('[NotificationService] Push delivery error:', pushErr.message);

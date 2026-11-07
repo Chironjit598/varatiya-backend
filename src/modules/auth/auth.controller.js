@@ -187,6 +187,23 @@ class AuthController {
       next(error);
     }
   }
+
+  /**
+   * Log out authenticated user
+   * POST /api/auth/logout
+   */
+  async logout(req, res, next) {
+    try {
+      const result = await authService.logout(req.user ? req.user._id : null);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: {},
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AuthController();

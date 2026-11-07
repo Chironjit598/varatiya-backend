@@ -73,7 +73,10 @@ const sendFcmPushNotification = async ({ token, title, body, data = {} }) => {
     return { success: true, messageId: response };
   } catch (err) {
     console.error(`[FCM PUSH FAILED] Error sending to token (${token.slice(0, 10)}...):`, err.message);
-    return { success: false, error: err.message };
+    const isTokenDead =
+      err.code === 'messaging/registration-token-not-registered' ||
+      err.code === 'messaging/invalid-registration-token';
+    return { success: false, error: err.message, isTokenDead };
   }
 };
 

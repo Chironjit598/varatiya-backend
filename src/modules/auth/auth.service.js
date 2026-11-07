@@ -389,6 +389,16 @@ class AuthService {
 
     return { accessToken };
   }
+
+  /**
+   * Log out authenticated user and unregister their push FCM token
+   */
+  async logout(userId) {
+    if (userId) {
+      await User.findByIdAndUpdate(userId, { fcmToken: null });
+    }
+    return { success: true, message: 'সফলভাবে লগআউট সম্পন্ন হয়েছে' };
+  }
 }
 
 module.exports = new AuthService();

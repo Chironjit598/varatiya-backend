@@ -136,4 +136,15 @@ router.post(
   authController.refreshToken
 );
 
+/**
+ * @route   POST /api/auth/logout
+ * @desc    Log out current user & unregister their FCM device token
+ * @access  Private (Bearer JWT)
+ */
+router.post(
+  '/logout',
+  authenticate,
+  authController.logout.bind(authController)
+);
+
 module.exports = router;
