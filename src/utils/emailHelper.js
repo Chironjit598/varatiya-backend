@@ -4,16 +4,27 @@ const env = require('../config/env');
 let transporter = null;
 
 if (env.SMTP_USER && env.SMTP_PASS) {
-  transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_PORT === 465, // true for 465, false for 587
-    auth: {
-      user: env.SMTP_USER,
-      pass: env.SMTP_PASS,
-    },
-  });
-  console.log('📧 [Email Service] SMTP Transporter configured for:', env.SMTP_USER);
+  const isGmail = env.SMTP_USER.includes('@gmail.com') || (env.SMTP_HOST && env.SMTP_HOST.includes('gmail'));
+  transporter = nodemailer.createTransport(
+    isGmail
+      ? {
+          service: 'gmail',
+          auth: {
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+          },
+        }
+      : {
+          host: env.SMTP_HOST,
+          port: env.SMTP_PORT,
+          secure: env.SMTP_PORT === 465,
+          auth: {
+            user: env.SMTP_USER,
+            pass: env.SMTP_PASS,
+          },
+        }
+  );
+  console.log('📧 [Email Service] Transporter configured for:', env.SMTP_USER);
 } else {
   console.log('📧 [Email Service] No SMTP credentials provided, running in development logging mode.');
 }
@@ -103,3 +114,4 @@ const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
 module.exports = {
   sendEmailOtp,
 };
+
