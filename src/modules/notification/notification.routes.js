@@ -16,6 +16,9 @@ router.patch('/read-all', authenticate, notificationController.markAllAsRead.bin
 // PATCH mark single notification as read (Protected)
 router.patch('/:id/read', authenticate, notificationController.markAsRead.bind(notificationController));
 
+// POST reactivate property directly from notification (Protected)
+router.post('/:id/reactivate', authenticate, notificationController.reactivateFromNotification.bind(notificationController));
+
 // POST register/update FCM device token (Optional authenticate)
 router.post('/fcm-token', optionalAuthenticate, notificationController.saveFcmToken.bind(notificationController));
 

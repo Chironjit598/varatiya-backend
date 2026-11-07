@@ -120,6 +120,27 @@ class NotificationController {
       next(error);
     }
   }
+
+  /**
+   * Reactivate a property directly from a notification
+   * POST /api/notifications/:id/reactivate
+   */
+  async reactivateFromNotification(req, res, next) {
+    try {
+      const result = await notificationService.reactivateFromNotification(
+        req.user._id,
+        req.params.id
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new NotificationController();

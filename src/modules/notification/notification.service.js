@@ -256,6 +256,47 @@ class NotificationService {
       .populate('viewedProperties.propertyId', 'title rentPrice area imageUrls')
       .lean();
   }
+
+  /**
+   * Reactivate a community-paused property directly from a notification
+   */
+  async reactivateFromNotification(userId, notificationId) {
+    const notification = await Notification.findOne({ _id: notificationId, userId });
+    if (!notification) {
+      const error = new Error('নোটিফিকেশন পাওয়া যায়নি (Notification not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const propertyId = notification.data ? notification.data.propertyId : null;
+    if (!propertyId) {
+      const error = new Error('এই নোটিফিকেশনে কোনো প্রপার্টি সংযুক্ত নেই');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Call PropertyService reactivate method
+    const propertyService = require('../property/property.service');
+    const property = await propertyService.reactivateCommunityPausedProperty(propertyId, userId);
+
+    // Update notification record
+    notification.isRead = true;
+    notification.readAt = new Date();
+    if (!notification.data.metadata) {
+      notification.data.metadata = {};
+    }
+    notification.data.metadata.isReactivated = true;
+    notification.data.metadata.reactivatedAt = new Date();
+    notification.markModified('data');
+    await notification.save();
+
+    return {
+      success: true,
+      message: 'বিজ্ঞাপনটি সফলভাবে পুনরায় চালু (Active) করা হয়েছে',
+      property,
+      notification: this.formatNotification(notification),
+    };
+  }
 }
 
 module.exports = new NotificationService();

@@ -849,6 +849,28 @@ class PropertyService {
       { status: 'RESOLVED', resolvedAt: new Date() }
     );
 
+    // Update associated community pause notifications as resolved & read
+    try {
+      const Notification = require('../notification/notification.model');
+      await Notification.updateMany(
+        {
+          userId: property.owner,
+          'data.propertyId': property._id,
+          'data.action': 'COMMUNITY_PAUSED_REACTIVATE',
+        },
+        {
+          $set: {
+            isRead: true,
+            readAt: new Date(),
+            'data.metadata.isReactivated': true,
+            'data.metadata.reactivatedAt': new Date(),
+          },
+        }
+      );
+    } catch (notifErr) {
+      console.error('[Notification Update Error on Reactivate]:', notifErr.message);
+    }
+
     return this.formatProperty(property);
   }
 }
