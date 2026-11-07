@@ -234,6 +234,19 @@ const propertySchema = new mongoose.Schema(
       default: true,
       index: true,
     },
+    isCommunityPaused: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    alreadyRentedReportCount: {
+      type: Number,
+      default: 0,
+    },
+    communityPausedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

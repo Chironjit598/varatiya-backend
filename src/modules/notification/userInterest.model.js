@@ -98,3 +98,4 @@ userInterestSchema.index({ lastActiveAt: 1, lastNotifiedAt: 1 });
 const UserInterest = mongoose.model('UserInterest', userInterestSchema);
 
 module.exports = UserInterest;
+

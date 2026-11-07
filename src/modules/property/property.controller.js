@@ -149,6 +149,49 @@ class PropertyController {
       next(error);
     }
   }
+
+  /**
+   * Report Property (e.g. Already Rented Out) (Protected)
+   * POST /api/properties/:id/report
+   */
+  async reportProperty(req, res, next) {
+    try {
+      const result = await propertyService.reportProperty(
+        req.params.id,
+        req.user._id,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Reactivate Community-Paused Property (Protected, Owner Only)
+   * PATCH /api/properties/:id/reactivate
+   */
+  async reactivateProperty(req, res, next) {
+    try {
+      const property = await propertyService.reactivateCommunityPausedProperty(
+        req.params.id,
+        req.user._id
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বিজ্ঞাপনটি সফলভাবে পুনরায় চালু (Active) করা হয়েছে',
+        data: { property },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PropertyController();

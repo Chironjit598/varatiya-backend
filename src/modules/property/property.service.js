@@ -1,6 +1,8 @@
 const Property = require('./property.model');
+const PropertyReport = require('./propertyReport.model');
 const ManagedMess = require('../mess/mess.model');
 const alertService = require('../alert/alert.service');
+const notificationService = require('../notification/notification.service');
 const {
   buildMessRooms,
   normalizeRoomsArray,
@@ -722,6 +724,130 @@ class PropertyService {
     });
 
     return true;
+  }
+
+  /**
+   * Report a property (e.g., 'ALREADY_RENTED', 'WRONG_NUMBER', etc.)
+   * Triggers automatic pause if 2 unique users report ALREADY_RENTED
+   */
+  async reportProperty(propertyId, userId, payload = {}) {
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      const error = new Error('বিজ্ঞাপনটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (property.owner.toString() === userId.toString()) {
+      const error = new Error('নিজের বিজ্ঞাপনে রিপোর্ট করা যাবে না');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Check if user already submitted an active report for this property
+    const existingReport = await PropertyReport.findOne({
+      propertyId: property._id,
+      userId,
+      status: 'ACTIVE',
+    });
+
+    if (existingReport) {
+      const error = new Error('আপনি ইতোমধ্যে এই বিজ্ঞাপনে রিপোর্ট করেছেন। ধন্যবাদ!');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const reason = payload.reason || 'ALREADY_RENTED';
+    const note = payload.note ? String(payload.note).trim() : '';
+
+    const report = await PropertyReport.create({
+      propertyId: property._id,
+      userId,
+      reason,
+      note,
+      status: 'ACTIVE',
+    });
+
+    let autoPaused = false;
+
+    // Check if reason is ALREADY_RENTED and evaluate auto-pause threshold (>= 2 reports)
+    if (reason === 'ALREADY_RENTED') {
+      const activeRentedReportsCount = await PropertyReport.countDocuments({
+        propertyId: property._id,
+        reason: 'ALREADY_RENTED',
+        status: 'ACTIVE',
+      });
+
+      property.alreadyRentedReportCount = activeRentedReportsCount;
+
+      if (activeRentedReportsCount >= 2 && property.isActive) {
+        property.isActive = false;
+        property.isCommunityPaused = true;
+        property.communityPausedAt = new Date();
+        autoPaused = true;
+
+        // Send Notification to Property Landlord
+        try {
+          await notificationService.createAndSendNotification({
+            userId: property.owner,
+            title: 'আপনার বাসাটি কি ভাড়া হয়ে গেছে?',
+            body: `ব্যবহারকারীরা রিপোর্ট করেছেন যে "${property.title}" বাসাটি ইতোমধ্যে ভাড়া হয়ে গেছে। তাই বিজ্ঞাপনটি সাময়িকভাবে বন্ধ (Pause) রাখা হয়েছে। বাসা এখনও ফাঁকা থাকলে আপনি পুনরায় চালু করতে পারবেন।`,
+            type: 'SYSTEM',
+            data: {
+              propertyId: property._id,
+              action: 'COMMUNITY_PAUSED_REACTIVATE',
+            },
+          });
+        } catch (notifErr) {
+          console.error('[Community Auto-Pause Notification Error]:', notifErr.message);
+        }
+      }
+
+      await property.save();
+    }
+
+    return {
+      success: true,
+      report,
+      alreadyRentedReportCount: property.alreadyRentedReportCount,
+      isCommunityPaused: property.isCommunityPaused,
+      autoPaused,
+      message: autoPaused
+        ? '২টি রিপোর্টের কারণে বিজ্ঞাপনটি সাময়িকভাবে বন্ধ করা হয়েছে এবং মালিককে জানানো হয়েছে।'
+        : 'আপনার রিপোর্ট সফলভাবে জমা নেওয়া হয়েছে। ধন্যবাদ!',
+    };
+  }
+
+  /**
+   * Reactivate a property that was community paused
+   */
+  async reactivateCommunityPausedProperty(propertyId, userId) {
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      const error = new Error('বিজ্ঞাপনটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (property.owner.toString() !== userId.toString()) {
+      const error = new Error('আপনার এই বিজ্ঞাপনটি অ্যাক্টিভ করার অনুমতি নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    property.isActive = true;
+    property.isCommunityPaused = false;
+    property.communityPausedAt = null;
+    property.alreadyRentedReportCount = 0;
+    await property.save();
+
+    // Mark previous active reports as resolved
+    await PropertyReport.updateMany(
+      { propertyId: property._id, status: 'ACTIVE' },
+      { status: 'RESOLVED', resolvedAt: new Date() }
+    );
+
+    return this.formatProperty(property);
   }
 }
 

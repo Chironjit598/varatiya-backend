@@ -23,3 +23,4 @@ router.post('/fcm-token', optionalAuthenticate, notificationController.saveFcmTo
 router.post('/track-view', optionalAuthenticate, notificationController.trackView.bind(notificationController));
 
 module.exports = router;
+

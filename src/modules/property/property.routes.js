@@ -120,6 +120,30 @@ router.put(
 );
 
 /**
+ * @route   POST /api/properties/:id/report
+ * @desc    Report property as already rented out, wrong number, etc. (Auto-pauses if >= 2 reports)
+ * @access  Protected
+ */
+router.post(
+  '/:id/report',
+  protect,
+  validateObjectId,
+  propertyController.reportProperty.bind(propertyController)
+);
+
+/**
+ * @route   PATCH /api/properties/:id/reactivate
+ * @desc    Reactivate property paused by community reports (Owner only)
+ * @access  Protected (Owner only)
+ */
+router.patch(
+  '/:id/reactivate',
+  protect,
+  validateObjectId,
+  propertyController.reactivateProperty.bind(propertyController)
+);
+
+/**
  * @route   DELETE /api/properties/:id
  * @desc    Delete a property post
  * @access  Protected (Owner only)
