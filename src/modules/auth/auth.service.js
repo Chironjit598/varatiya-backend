@@ -176,22 +176,17 @@ class AuthService {
     // Find latest valid OTP record
     const otpRecord = await OTP.findOne(query).sort({ createdAt: -1 });
 
-    const isDevBypass =
-      env.NODE_ENV === 'development' && String(otp).trim() === String(env.DEFAULT_DEV_OTP);
-
-    if (!otpRecord && !isDevBypass) {
+    if (!otpRecord) {
       const error = new Error('Invalid or expired OTP. Please request a new one.');
       error.statusCode = 400;
       throw error;
     }
 
-    if (otpRecord) {
-      const isMatch = await otpRecord.compareOTP(otp);
-      if (!isMatch && !isDevBypass) {
-        const error = new Error('Incorrect OTP code. Please check and try again.');
-        error.statusCode = 400;
-        throw error;
-      }
+    const isMatch = await otpRecord.compareOTP(otp);
+    if (!isMatch) {
+      const error = new Error('Incorrect OTP code. Please check and try again.');
+      error.statusCode = 400;
+      throw error;
     }
 
     if (purpose === 'REGISTRATION') {
@@ -444,22 +439,17 @@ class AuthService {
 
     const otpRecord = await OTP.findOne(query).sort({ createdAt: -1 });
 
-    const isDevBypass =
-      env.NODE_ENV === 'development' && String(otp).trim() === String(env.DEFAULT_DEV_OTP);
-
-    if (!otpRecord && !isDevBypass) {
+    if (!otpRecord) {
       const error = new Error('Invalid or expired OTP. Please request a new password reset OTP.');
       error.statusCode = 400;
       throw error;
     }
 
-    if (otpRecord) {
-      const isMatch = await otpRecord.compareOTP(otp);
-      if (!isMatch && !isDevBypass) {
-        const error = new Error('Incorrect OTP code.');
-        error.statusCode = 400;
-        throw error;
-      }
+    const isMatch = await otpRecord.compareOTP(otp);
+    if (!isMatch) {
+      const error = new Error('Incorrect OTP code.');
+      error.statusCode = 400;
+      throw error;
     }
 
     const userQuery = cleanEmail ? { email: cleanEmail } : { phoneNumber: cleanPhone };

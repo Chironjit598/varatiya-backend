@@ -1,14 +1,11 @@
 const env = require('../config/env');
 
 /**
- * Generate a numeric OTP code
+ * Generate a real random numeric OTP code
  * @param {number} [digits=4]
  * @returns {string}
  */
 const generateOTP = (digits = 4) => {
-  if (env.NODE_ENV === 'development' && env.DEFAULT_DEV_OTP) {
-    return env.DEFAULT_DEV_OTP;
-  }
   const min = Math.pow(10, digits - 1);
   const max = Math.pow(10, digits) - 1;
   return Math.floor(min + Math.random() * (max - min + 1)).toString();
