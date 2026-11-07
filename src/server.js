@@ -1,7 +1,9 @@
 const os = require('os');
+const http = require('http');
 const app = require('./app');
 const env = require('./config/env');
 const { connectDB, closeDB } = require('./config/db');
+const { initSocket } = require('./config/socket');
 const reEngagementWorker = require('./modules/notification/reEngagement.worker');
 
 let server;
@@ -25,8 +27,12 @@ const startServer = async () => {
 
     const localIp = getLocalIP();
 
-    // 2. Start Express HTTP server binding to all network interfaces
-    server = app.listen(env.PORT, '0.0.0.0', () => {
+    // 2. Create HTTP server & attach Socket.IO
+    const httpServer = http.createServer(app);
+    initSocket(httpServer);
+
+    // 3. Start Express HTTP & WebSocket server binding to all network interfaces
+    server = httpServer.listen(env.PORT, '0.0.0.0', () => {
       console.log(`\n=================================================`);
       console.log(`🚀 Basha Lagbe Backend API running on port ${env.PORT}`);
       console.log(`📡 Environment: ${env.NODE_ENV}`);
@@ -40,9 +46,10 @@ const startServer = async () => {
       console.log(`👨‍👩‍👧 Family Expense:  http://${localIp}:${env.PORT}/api/family-expenses`);
       console.log(`🔔 Alerts API:      http://${localIp}:${env.PORT}/api/alerts`);
       console.log(`📨 Notifications:   http://${localIp}:${env.PORT}/api/notifications`);
+      console.log(`⚡ WebSocket / WS:   ws://${localIp}:${env.PORT} (Socket.IO)`);
       console.log(`=================================================\n`);
 
-      // 3. Start Smart Background Re-engagement Worker
+      // 4. Start Smart Background Re-engagement Worker
       reEngagementWorker.start();
     });
   } catch (error) {

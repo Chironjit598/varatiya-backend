@@ -2,6 +2,11 @@ const Notification = require('./notification.model');
 const UserInterest = require('./userInterest.model');
 const Property = require('../property/property.model');
 const User = require('../auth/user.model');
+const {
+  sendNotificationToUser,
+  sendUnreadCountUpdate,
+  sendNotificationReadUpdate,
+} = require('../../config/socket');
 
 class NotificationService {
   /**
@@ -66,7 +71,27 @@ class NotificationService {
       error.statusCode = 404;
       throw error;
     }
-    return this.formatNotification(notification);
+
+    // Real-Time Socket.IO emission
+    try {
+      const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+      sendNotificationReadUpdate(userId, notificationId);
+      sendUnreadCountUpdate(userId, unreadCount);
+    } catch (sockErr) {
+      console.error('[Socket.IO Emit Error]:', sockErr.message);
+    }
+
+    // 3. Real-Time Socket.IO emission
+    const formatted = this.formatNotification(notification);
+    try {
+      const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+      sendNotificationToUser(userId, formatted);
+      sendUnreadCountUpdate(userId, unreadCount);
+    } catch (sockErr) {
+      console.error('[Socket.IO Emit Error]:', sockErr.message);
+    }
+
+    return formatted;
   }
 
   /**
@@ -77,6 +102,14 @@ class NotificationService {
       { userId, isRead: false },
       { isRead: true, readAt: new Date() }
     );
+
+    // Real-Time Socket.IO emission
+    try {
+      sendUnreadCountUpdate(userId, 0);
+    } catch (sockErr) {
+      console.error('[Socket.IO Emit Error]:', sockErr.message);
+    }
+
     return { markedCount: result.modifiedCount || 0 };
   }
 
@@ -245,7 +278,17 @@ class NotificationService {
       console.error('[NotificationService] Push delivery error:', pushErr.message);
     }
 
-    return this.formatNotification(notification);
+    // 3. Real-Time Socket.IO emission
+    const formatted = this.formatNotification(notification);
+    try {
+      const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+      sendNotificationToUser(userId, formatted);
+      sendUnreadCountUpdate(userId, unreadCount);
+    } catch (sockErr) {
+      console.error('[Socket.IO Emit Error]:', sockErr.message);
+    }
+
+    return formatted;
   }
 
   /**
@@ -289,6 +332,15 @@ class NotificationService {
     notification.data.metadata.reactivatedAt = new Date();
     notification.markModified('data');
     await notification.save();
+
+    // Real-Time Socket.IO emission
+    try {
+      const unreadCount = await Notification.countDocuments({ userId, isRead: false });
+      sendNotificationReadUpdate(userId, notificationId);
+      sendUnreadCountUpdate(userId, unreadCount);
+    } catch (sockErr) {
+      console.error('[Socket.IO Emit Error]:', sockErr.message);
+    }
 
     return {
       success: true,
