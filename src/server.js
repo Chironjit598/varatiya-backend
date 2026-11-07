@@ -4,6 +4,7 @@ const app = require('./app');
 const env = require('./config/env');
 const { connectDB, closeDB } = require('./config/db');
 const { initSocket } = require('./config/socket');
+require('./config/firebase');
 const reEngagementWorker = require('./modules/notification/reEngagement.worker');
 
 let server;
@@ -47,6 +48,7 @@ const startServer = async () => {
       console.log(`🔔 Alerts API:      http://${localIp}:${env.PORT}/api/alerts`);
       console.log(`📨 Notifications:   http://${localIp}:${env.PORT}/api/notifications`);
       console.log(`⚡ WebSocket / WS:   ws://${localIp}:${env.PORT} (Socket.IO)`);
+      console.log(`🔥 Firebase Push:   Active (Project: varatia-2cc12)`);
       console.log(`=================================================\n`);
 
       // 4. Start Smart Background Re-engagement Worker

@@ -2,6 +2,7 @@ const Notification = require('./notification.model');
 const UserInterest = require('./userInterest.model');
 const Property = require('../property/property.model');
 const User = require('../auth/user.model');
+const { sendFcmPushNotification } = require('../../config/firebase');
 const {
   sendNotificationToUser,
   sendUnreadCountUpdate,
@@ -267,12 +268,21 @@ class NotificationService {
       data,
     });
 
-    // 2. Fetch User to check FCM Token
+    // 2. Fetch User to check FCM Token & dispatch real push notification
     try {
       const user = await User.findById(userId).select('fcmToken').lean();
       if (user && user.fcmToken) {
-        // FCM push delivery (if firebase-admin is integrated, call here; otherwise log)
-        console.log(`[FCM PUSH] Sending notification to user ${userId} (Token: ${user.fcmToken.slice(0, 10)}...): "${title}"`);
+        console.log(`[FCM PUSH] Dispatching push notification to user ${userId} (Token: ${user.fcmToken.slice(0, 10)}...): "${title}"`);
+        sendFcmPushNotification({
+          token: user.fcmToken,
+          title,
+          body,
+          data: {
+            propertyId: data.propertyId ? data.propertyId.toString() : '',
+            action: data.action || 'VIEW_PROPERTY',
+            type,
+          },
+        }).catch((fcmErr) => console.error('[FCM Send Error]:', fcmErr.message));
       }
     } catch (pushErr) {
       console.error('[NotificationService] Push delivery error:', pushErr.message);
