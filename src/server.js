@@ -34,7 +34,7 @@ const startServer = async () => {
     // 3. Start Express HTTP & WebSocket server binding to all network interfaces
     server = httpServer.listen(env.PORT, '0.0.0.0', () => {
       console.log(`\n=================================================`);
-      console.log(`🚀 Basha Lagbe Backend API running on port ${env.PORT}`);
+      console.log(`🚀 Varatia Backend API running on port ${env.PORT}`);
       console.log(`📡 Environment: ${env.NODE_ENV}`);
       console.log(`🏠 Local:   http://localhost:${env.PORT}`);
       console.log(`🌐 Network: http://${localIp}:${env.PORT}`);

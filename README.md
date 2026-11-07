@@ -1,4 +1,4 @@
-# বাসা লাগবে (Basha Lagbe) - Production REST API Backend
+# ভাড়াটিয়া (Varatia) - Production REST API Backend
 
 > All-in-one Home Searching, Mess Seat Booking, Mess Management, Bachelor Meal Tracking, and Family Expense Tracking Platform Backend API.
 

@@ -1,7 +1,7 @@
 {
-  "name": "basha-lagbe-backend",
+  "name": "varatia-backend",
   "version": "1.0.0",
-  "description": "Backend API for Basha Lagbe (House Rental & Mess Management App)",
+  "description": "Backend API for Varatia (House Rental & Mess Management App)",
   "main": "src/server.js",
   "scripts": {
     "start": "node init && node src/server.js",
@@ -10,7 +10,7 @@
   "keywords": [
     "house-rental",
     "mess-management",
-    "basha-lagbe",
+    "varatia",
     "express",
     "mongodb",
     "jwt",

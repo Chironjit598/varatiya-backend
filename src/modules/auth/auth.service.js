@@ -55,8 +55,8 @@ class AuthService {
     });
 
     const message = purpose === 'REGISTRATION'
-      ? `Your Basha Lagbe registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
-      : `Your Basha Lagbe password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
+      ? `Your Varatia registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
+      : `Your Varatia password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
 
     await sendSMS({ phoneNumber, message, otp: rawOtp });
 
