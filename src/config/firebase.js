@@ -7,9 +7,20 @@ let isFirebaseInitialized = false;
 let messagingService = null;
 
 try {
+  let serviceAccount = null;
   const serviceAccountPath = path.join(__dirname, 'firebase-service-account.json');
-  if (fs.existsSync(serviceAccountPath)) {
-    const serviceAccount = require(serviceAccountPath);
+
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (e) {
+      serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT, 'base64').toString('utf8'));
+    }
+  } else if (fs.existsSync(serviceAccountPath)) {
+    serviceAccount = require(serviceAccountPath);
+  }
+
+  if (serviceAccount) {
     const app = admin.initializeApp({
       credential: admin.cert(serviceAccount),
     });
