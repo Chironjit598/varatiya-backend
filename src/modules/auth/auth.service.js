@@ -4,6 +4,7 @@ const env = require('../../config/env');
 const User = require('./user.model');
 const OTP = require('./otp.model');
 const { generateOTP, sendSMS } = require('../../utils/smsHelper');
+const { sendEmailOtp } = require('../../utils/emailHelper');
 
 class AuthService {
   /**
@@ -15,6 +16,7 @@ class AuthService {
     const payload = {
       id: user._id || user.id,
       phoneNumber: user.phoneNumber,
+      email: user.email,
       role: user.role,
     };
 
@@ -34,34 +36,64 @@ class AuthService {
   }
 
   /**
-   * Create, hash, store, and dispatch an OTP to a phone number
-   * @param {string} phoneNumber 
-   * @param {'REGISTRATION'|'FORGOT_PASSWORD'} purpose 
-   * @returns {Promise<{phoneNumber: string, otp?: string}>}
+   * Create, hash, store, and dispatch an OTP to an email or phone number
+   * @param {string|Object} target - Email/phone string or { email, phoneNumber, purpose }
+   * @param {'REGISTRATION'|'FORGOT_PASSWORD'} [purposeParam] 
+   * @returns {Promise<{email?: string, phoneNumber?: string, otp?: string}>}
    */
-  async createAndSendOtp(phoneNumber, purpose) {
-    // Invalidate any existing pending OTPs for this phone and purpose
-    await OTP.deleteMany({ phoneNumber, purpose });
+  async createAndSendOtp(target, purposeParam) {
+    let email = null;
+    let phoneNumber = null;
+    let purpose = purposeParam || 'REGISTRATION';
+
+    if (typeof target === 'object' && target !== null) {
+      email = target.email ? target.email.toLowerCase().trim() : null;
+      phoneNumber = target.phoneNumber ? String(target.phoneNumber).trim() : null;
+      purpose = target.purpose || purpose;
+    } else if (typeof target === 'string') {
+      const cleanTarget = target.trim();
+      if (cleanTarget.includes('@')) {
+        email = cleanTarget.toLowerCase();
+      } else {
+        phoneNumber = cleanTarget;
+      }
+    }
+
+    // Invalidate any existing pending OTPs for this target and purpose
+    const deleteQuery = { purpose };
+    if (email) {
+      deleteQuery.email = email;
+    } else if (phoneNumber) {
+      deleteQuery.phoneNumber = phoneNumber;
+    }
+    await OTP.deleteMany(deleteQuery);
 
     const rawOtp = generateOTP(4);
     const hashedOtp = await bcrypt.hash(rawOtp, 10);
     const expiresAt = new Date(Date.now() + env.OTP_EXPIRY_MINUTES * 60 * 1000);
 
     await OTP.create({
-      phoneNumber,
+      ...(email ? { email } : {}),
+      ...(phoneNumber ? { phoneNumber } : {}),
       otp: hashedOtp,
       purpose,
       expiresAt,
     });
 
-    const message = purpose === 'REGISTRATION'
-      ? `Your Varatia registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
-      : `Your Varatia password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
+    // Send OTP via Email first (as requested) or SMS fallback
+    if (email) {
+      await sendEmailOtp({ email, otp: rawOtp, purpose });
+    } else if (phoneNumber) {
+      const message = purpose === 'REGISTRATION'
+        ? `Your Varatia registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
+        : `Your Varatia password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
 
-    await sendSMS({ phoneNumber, message, otp: rawOtp });
+      await sendSMS({ phoneNumber, message, otp: rawOtp });
+    }
 
     return {
-      phoneNumber,
+      ...(email ? { email } : {}),
+      ...(phoneNumber ? { phoneNumber } : {}),
       ...(env.NODE_ENV === 'development' ? { devOtp: rawOtp } : {}),
     };
   }
@@ -69,27 +101,44 @@ class AuthService {
   /**
    * User Registration
    */
-  async register({ name, phoneNumber, password, role, email }) {
-    // Check if user already exists
-    let user = await User.findOne({ phoneNumber });
+  async register({ name, phoneNumber, email, password, role }) {
+    const cleanPhone = String(phoneNumber || '').trim();
+    const cleanEmail = email ? String(email).toLowerCase().trim() : null;
 
-    if (user) {
+    // Check if phone already registered
+    let existingUser = await User.findOne({ phoneNumber: cleanPhone });
+    if (existingUser) {
       const error = new Error('এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা আছে। অনুগ্রহ করে লগইন করুন। (An account with this phone number already exists)');
       error.statusCode = 400;
       throw error;
     }
 
-    user = await User.create({
+    // Check if email already registered
+    if (cleanEmail) {
+      existingUser = await User.findOne({ email: cleanEmail });
+      if (existingUser) {
+        const error = new Error('এই ইমেইল দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা আছে। (An account with this email already exists)');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const user = await User.create({
       name: name.trim(),
-      phoneNumber,
+      phoneNumber: cleanPhone,
+      email: cleanEmail,
       password,
-      email: email || null,
       role: role || 'Seeker',
-      isPhoneVerified: true,
+      isPhoneVerified: false,
+      isEmailVerified: false,
     });
 
-    // Generate & send OTP (in case client uses OTP verification step)
-    const otpResult = await this.createAndSendOtp(phoneNumber, 'REGISTRATION');
+    // Generate & send OTP to user's email (or phone if email not present)
+    const otpResult = await this.createAndSendOtp({
+      email: cleanEmail,
+      phoneNumber: cleanPhone,
+      purpose: 'REGISTRATION',
+    });
     const tokens = this.generateTokens(user);
 
     return {
@@ -104,13 +153,28 @@ class AuthService {
   /**
    * Verify Registration / General OTP
    */
-  async verifyOtp({ phoneNumber, otp, purpose }) {
-    // Find latest valid OTP record
-    const otpRecord = await OTP.findOne({
-      phoneNumber,
+  async verifyOtp({ email, phoneNumber, otp, purpose = 'REGISTRATION' }) {
+    const cleanEmail = email ? String(email).toLowerCase().trim() : null;
+    const cleanPhone = phoneNumber ? String(phoneNumber).trim() : null;
+
+    if (!cleanEmail && !cleanPhone) {
+      const error = new Error('Email or phone number is required for OTP verification.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const query = {
       purpose,
       expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 });
+    };
+    if (cleanEmail) {
+      query.email = cleanEmail;
+    } else {
+      query.phoneNumber = cleanPhone;
+    }
+
+    // Find latest valid OTP record
+    const otpRecord = await OTP.findOne(query).sort({ createdAt: -1 });
 
     const isDevBypass =
       env.NODE_ENV === 'development' && String(otp).trim() === String(env.DEFAULT_DEV_OTP);
@@ -131,18 +195,20 @@ class AuthService {
     }
 
     if (purpose === 'REGISTRATION') {
-      const user = await User.findOne({ phoneNumber });
+      const userQuery = cleanEmail ? { email: cleanEmail } : { phoneNumber: cleanPhone };
+      const user = await User.findOne(userQuery);
       if (!user) {
         const error = new Error('User account not found.');
         error.statusCode = 404;
         throw error;
       }
 
+      user.isEmailVerified = true;
       user.isPhoneVerified = true;
       await user.save();
 
       // Clear used OTPs
-      await OTP.deleteMany({ phoneNumber, purpose });
+      await OTP.deleteMany(cleanEmail ? { email: cleanEmail, purpose } : { phoneNumber: cleanPhone, purpose });
 
       const tokens = this.generateTokens(user);
 
@@ -156,7 +222,8 @@ class AuthService {
     // For other purposes like password reset verification step
     return {
       verified: true,
-      phoneNumber,
+      email: cleanEmail,
+      phoneNumber: cleanPhone,
       purpose,
     };
   }
@@ -164,50 +231,86 @@ class AuthService {
   /**
    * Resend OTP
    */
-  async resendOtp({ phoneNumber, purpose }) {
-    const user = await User.findOne({ phoneNumber }).lean();
+  async resendOtp({ email, phoneNumber, purpose = 'REGISTRATION' }) {
+    const cleanEmail = email ? String(email).toLowerCase().trim() : null;
+    const cleanPhone = phoneNumber ? String(phoneNumber).trim() : null;
+
+    if (!cleanEmail && !cleanPhone) {
+      const error = new Error('Email or phone number is required to resend OTP.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const query = cleanEmail ? { email: cleanEmail } : { phoneNumber: cleanPhone };
+    const user = await User.findOne(query).lean();
 
     if (!user) {
-      const error = new Error('No account found with this phone number.');
+      const error = new Error('No account found with this information.');
       error.statusCode = 404;
       throw error;
     }
 
-    const otpResult = await this.createAndSendOtp(phoneNumber, purpose);
+    const targetEmail = cleanEmail || user.email;
+    const targetPhone = cleanPhone || user.phoneNumber;
+
+    const otpResult = await this.createAndSendOtp({
+      email: targetEmail,
+      phoneNumber: targetPhone,
+      purpose,
+    });
     return otpResult;
   }
 
   /**
    * Standard User Login
    */
-  async login({ phoneNumber, password }) {
-    const cleanPhone = String(phoneNumber || '').trim();
+  async login({ phoneNumber, email, identifier, password }) {
+    const cleanPhone = phoneNumber ? String(phoneNumber).trim() : null;
+    const cleanEmail = email ? String(email).toLowerCase().trim() : null;
+    const cleanIdentifier = identifier ? String(identifier).trim() : null;
     const cleanPassword = String(password || '').trim();
 
-    const user = await User.findOne({ phoneNumber: cleanPhone }).select('+password');
+    let query = {};
+    if (cleanPhone) {
+      query = { phoneNumber: cleanPhone };
+    } else if (cleanEmail) {
+      query = { email: cleanEmail };
+    } else if (cleanIdentifier) {
+      if (cleanIdentifier.includes('@')) {
+        query = { email: cleanIdentifier.toLowerCase() };
+      } else {
+        query = { phoneNumber: cleanIdentifier };
+      }
+    } else {
+      const error = new Error('Phone number or email is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const user = await User.findOne(query).select('+password');
 
     if (!user) {
       if (env.NODE_ENV === 'development') {
-        console.warn(`[Login Warning] No user found with phone number: "${cleanPhone}"`);
+        console.warn(`[Login Warning] No user found with query:`, query);
       }
-      const error = new Error('Invalid phone number or password.');
+      const error = new Error('ভুল মোবাইল নম্বর/ইমেইল অথবা পাসওয়ার্ড। (Invalid phone number/email or password.)');
       error.statusCode = 401;
       throw error;
     }
 
-    if (!user.isPhoneVerified) {
-      const error = new Error('Phone number is not verified. Please verify your phone number before logging in.');
+    if (!user.isPhoneVerified && !user.isEmailVerified) {
+      const error = new Error('অ্যাকাউন্ট ভেরিফাই করা হয়নি। দয়া করে ইমেইল ওটিপি ভেরিফিকেশন সম্পন্ন করুন। (Account not verified. Please verify your email OTP before logging in.)');
       error.statusCode = 403;
-      error.isPhoneVerified = false;
+      error.isVerified = false;
       throw error;
     }
 
     const isPasswordMatch = await user.comparePassword(cleanPassword);
     if (!isPasswordMatch) {
       if (env.NODE_ENV === 'development') {
-        console.warn(`[Login Warning] Password does not match for phone number: "${cleanPhone}"`);
+        console.warn(`[Login Warning] Password does not match for user:`, query);
       }
-      const error = new Error('Invalid phone number or password.');
+      const error = new Error('ভুল মোবাইল নম্বর/ইমেইল অথবা পাসওয়ার্ড। (Invalid phone number/email or password.)');
       error.statusCode = 401;
       throw error;
     }
@@ -237,7 +340,7 @@ class AuthService {
       user.name = String(name).trim();
     }
     if (email !== undefined) {
-      user.email = email ? String(email).trim() : null;
+      user.email = email ? String(email).trim().toLowerCase() : null;
     }
     if (avatar !== undefined) {
       user.avatar = avatar ? String(avatar).trim() : null;
@@ -274,28 +377,72 @@ class AuthService {
   /**
    * Initiate Forgot Password
    */
-  async forgotPassword(phoneNumber) {
-    const user = await User.findOne({ phoneNumber }).lean();
+  async forgotPassword(target) {
+    let email = null;
+    let phoneNumber = null;
+
+    if (typeof target === 'object' && target !== null) {
+      email = target.email ? String(target.email).toLowerCase().trim() : null;
+      phoneNumber = target.phoneNumber ? String(target.phoneNumber).trim() : null;
+    } else if (typeof target === 'string') {
+      const cleanTarget = target.trim();
+      if (cleanTarget.includes('@')) {
+        email = cleanTarget.toLowerCase();
+      } else {
+        phoneNumber = cleanTarget;
+      }
+    }
+
+    if (!email && !phoneNumber) {
+      const error = new Error('Email or phone number is required.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const query = email ? { email } : { phoneNumber };
+    const user = await User.findOne(query).lean();
 
     if (!user) {
-      const error = new Error('No user account found with this phone number.');
+      const error = new Error('No user account found with this email or phone number.');
       error.statusCode = 404;
       throw error;
     }
 
-    const otpResult = await this.createAndSendOtp(phoneNumber, 'FORGOT_PASSWORD');
+    const targetEmail = email || user.email;
+    const targetPhone = phoneNumber || user.phoneNumber;
+
+    const otpResult = await this.createAndSendOtp({
+      email: targetEmail,
+      phoneNumber: targetPhone,
+      purpose: 'FORGOT_PASSWORD',
+    });
     return otpResult;
   }
 
   /**
    * Reset Password with OTP
    */
-  async resetPassword({ phoneNumber, otp, newPassword }) {
-    const otpRecord = await OTP.findOne({
-      phoneNumber,
+  async resetPassword({ email, phoneNumber, otp, newPassword }) {
+    const cleanEmail = email ? String(email).toLowerCase().trim() : null;
+    const cleanPhone = phoneNumber ? String(phoneNumber).trim() : null;
+
+    if (!cleanEmail && !cleanPhone) {
+      const error = new Error('Email or phone number is required to reset password.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const query = {
       purpose: 'FORGOT_PASSWORD',
       expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 });
+    };
+    if (cleanEmail) {
+      query.email = cleanEmail;
+    } else {
+      query.phoneNumber = cleanPhone;
+    }
+
+    const otpRecord = await OTP.findOne(query).sort({ createdAt: -1 });
 
     const isDevBypass =
       env.NODE_ENV === 'development' && String(otp).trim() === String(env.DEFAULT_DEV_OTP);
@@ -315,7 +462,8 @@ class AuthService {
       }
     }
 
-    const user = await User.findOne({ phoneNumber });
+    const userQuery = cleanEmail ? { email: cleanEmail } : { phoneNumber: cleanPhone };
+    const user = await User.findOne(userQuery);
     if (!user) {
       const error = new Error('User account not found.');
       error.statusCode = 404;
@@ -323,11 +471,12 @@ class AuthService {
     }
 
     user.password = newPassword; // Handled by pre-save bcrypt hook
+    user.isEmailVerified = true;
     user.isPhoneVerified = true;
     await user.save();
 
     // Invalidate OTPs
-    await OTP.deleteMany({ phoneNumber, purpose: 'FORGOT_PASSWORD' });
+    await OTP.deleteMany(cleanEmail ? { email: cleanEmail, purpose: 'FORGOT_PASSWORD' } : { phoneNumber: cleanPhone, purpose: 'FORGOT_PASSWORD' });
 
     return true;
   }

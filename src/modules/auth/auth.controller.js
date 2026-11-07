@@ -8,12 +8,12 @@ class AuthController {
    */
   async register(req, res, next) {
     try {
-      const { name, phoneNumber, password, role } = req.body;
-      const result = await authService.register({ name, phoneNumber, password, role });
+      const { name, phoneNumber, email, password, role } = req.body;
+      const result = await authService.register({ name, phoneNumber, email, password, role });
 
       return ApiResponse.success(res, {
         statusCode: 201,
-        message: 'OTP sent to phone number',
+        message: 'OTP sent to email successfully',
         data: result,
       });
     } catch (error) {
@@ -27,8 +27,8 @@ class AuthController {
    */
   async verifyOtp(req, res, next) {
     try {
-      const { phoneNumber, otp, purpose } = req.body;
-      const result = await authService.verifyOtp({ phoneNumber, otp, purpose });
+      const { email, phoneNumber, otp, purpose } = req.body;
+      const result = await authService.verifyOtp({ email, phoneNumber, otp, purpose });
 
       return ApiResponse.success(res, {
         statusCode: 200,
@@ -46,8 +46,8 @@ class AuthController {
    */
   async resendOtp(req, res, next) {
     try {
-      const { phoneNumber, purpose } = req.body;
-      const result = await authService.resendOtp({ phoneNumber, purpose });
+      const { email, phoneNumber, purpose } = req.body;
+      const result = await authService.resendOtp({ email, phoneNumber, purpose });
 
       return ApiResponse.success(res, {
         statusCode: 200,
@@ -65,8 +65,8 @@ class AuthController {
    */
   async login(req, res, next) {
     try {
-      const { phoneNumber, password } = req.body;
-      const result = await authService.login({ phoneNumber, password });
+      const { phoneNumber, email, identifier, password } = req.body;
+      const result = await authService.login({ phoneNumber, email, identifier, password });
 
       return ApiResponse.success(res, {
         statusCode: 200,
@@ -120,12 +120,12 @@ class AuthController {
    */
   async forgotPassword(req, res, next) {
     try {
-      const { phoneNumber } = req.body;
-      const result = await authService.forgotPassword(phoneNumber);
+      const { email, phoneNumber } = req.body;
+      const result = await authService.forgotPassword({ email, phoneNumber });
 
       return ApiResponse.success(res, {
         statusCode: 200,
-        message: 'Password reset OTP sent to your phone',
+        message: 'Password reset OTP sent to your email/phone',
         data: result,
       });
     } catch (error) {
@@ -139,8 +139,8 @@ class AuthController {
    */
   async resetPassword(req, res, next) {
     try {
-      const { phoneNumber, otp, newPassword } = req.body;
-      await authService.resetPassword({ phoneNumber, otp, newPassword });
+      const { email, phoneNumber, otp, newPassword } = req.body;
+      await authService.resetPassword({ email, phoneNumber, otp, newPassword });
 
       return ApiResponse.success(res, {
         statusCode: 200,

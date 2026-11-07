@@ -2,6 +2,7 @@ const ApiResponse = require('../../utils/apiResponse');
 
 // Standard Bangladeshi & international phone number regex helper
 const BD_PHONE_REGEX = /^(?:\+?88)?01[3-9]\d{8}$/;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Helper to normalize Bangladeshi phone numbers to standard "01XXXXXXXXX" format
@@ -24,31 +25,36 @@ const normalizePhoneNumber = (phone) => {
  * Validate Register Payload
  */
 const validateRegister = (req, res, next) => {
-  const { name, phoneNumber, password, role } = req.body;
+  const { name, phoneNumber, email, password, role } = req.body;
   const errors = [];
 
   if (!name || typeof name !== 'string' || name.trim().length < 2) {
-    errors.push('Name is required and must be at least 2 characters long.');
+    errors.push('নাম কমপক্ষে ২ অক্ষরের হতে হবে (Name must be at least 2 characters long).');
   }
 
   if (!phoneNumber) {
-    errors.push('Phone number is required.');
+    errors.push('মোবাইল নম্বর প্রদান করুন (Phone number is required).');
   } else {
     const normalized = normalizePhoneNumber(phoneNumber);
     if (!BD_PHONE_REGEX.test(normalized)) {
-      errors.push('Please provide a valid Bangladeshi phone number (e.g. 017XXXXXXXX).');
+      errors.push('সঠিক বাংলাদেশি মোবাইল নম্বর দিন (e.g. 017XXXXXXXX).');
     } else {
       req.body.phoneNumber = normalized;
     }
   }
 
-  if (!password || typeof password !== 'string' || password.length < 6) {
-    errors.push('Password is required and must be at least 6 characters long.');
+  if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
+    errors.push('সঠিক ইমেইল ঠিকানা প্রদান করুন (Valid email address is required).');
+  } else {
+    req.body.email = email.trim().toLowerCase();
   }
 
-  if (role && !['Seeker', 'Landlord', 'Both'].includes(role)) {
-    errors.push('Role must be one of: Seeker, Landlord, Both.');
+  if (!password || typeof password !== 'string' || password.length < 6) {
+    errors.push('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে (Password must be at least 6 characters long).');
   }
+
+  // Default role to 'Seeker' if not provided
+  req.body.role = role && ['Seeker', 'Landlord', 'Both'].includes(role) ? role : 'Seeker';
 
   if (errors.length > 0) {
     return ApiResponse.error(res, {
@@ -62,20 +68,26 @@ const validateRegister = (req, res, next) => {
 };
 
 /**
- * Validate Verify OTP Payload
+ * Validate Verify OTP Payload (Supports both Email and Phone)
  */
 const validateVerifyOtp = (req, res, next) => {
-  const { phoneNumber, otp, purpose } = req.body;
+  const { email, phoneNumber, otp, purpose } = req.body;
   const errors = [];
 
-  if (!phoneNumber) {
-    errors.push('Phone number is required.');
-  } else {
+  if (!email && !phoneNumber) {
+    errors.push('ইমেইল অথবা মোবাইল নম্বর প্রদান করুন (Email or Phone number is required).');
+  }
+
+  if (email) {
+    req.body.email = String(email).trim().toLowerCase();
+  }
+
+  if (phoneNumber) {
     req.body.phoneNumber = normalizePhoneNumber(phoneNumber);
   }
 
   if (!otp || String(otp).trim().length === 0) {
-    errors.push('OTP is required.');
+    errors.push('ওটিপি কোড প্রদান করুন (OTP is required).');
   }
 
   if (!purpose || !['REGISTRATION', 'FORGOT_PASSWORD'].includes(purpose)) {
@@ -94,15 +106,21 @@ const validateVerifyOtp = (req, res, next) => {
 };
 
 /**
- * Validate Resend OTP Payload
+ * Validate Resend OTP Payload (Supports both Email and Phone)
  */
 const validateResendOtp = (req, res, next) => {
-  const { phoneNumber, purpose } = req.body;
+  const { email, phoneNumber, purpose } = req.body;
   const errors = [];
 
-  if (!phoneNumber) {
-    errors.push('Phone number is required.');
-  } else {
+  if (!email && !phoneNumber) {
+    errors.push('ইমেইল অথবা মোবাইল নম্বর প্রদান করুন (Email or Phone number is required).');
+  }
+
+  if (email) {
+    req.body.email = String(email).trim().toLowerCase();
+  }
+
+  if (phoneNumber) {
     req.body.phoneNumber = normalizePhoneNumber(phoneNumber);
   }
 
@@ -122,20 +140,26 @@ const validateResendOtp = (req, res, next) => {
 };
 
 /**
- * Validate Login Payload
+ * Validate Login Payload (Supports Phone Number or Email)
  */
 const validateLogin = (req, res, next) => {
-  const { phoneNumber, password } = req.body;
+  const { phoneNumber, email, identifier, password } = req.body;
   const errors = [];
 
-  if (!phoneNumber) {
-    errors.push('Phone number is required.');
+  const targetIdentifier = identifier || email || phoneNumber;
+
+  if (!targetIdentifier) {
+    errors.push('মোবাইল নম্বর অথবা ইমেইল প্রদান করুন (Phone number or Email is required).');
   } else {
-    req.body.phoneNumber = normalizePhoneNumber(phoneNumber);
+    if (String(targetIdentifier).includes('@')) {
+      req.body.email = String(targetIdentifier).trim().toLowerCase();
+    } else {
+      req.body.phoneNumber = normalizePhoneNumber(targetIdentifier);
+    }
   }
 
   if (!password) {
-    errors.push('Password is required.');
+    errors.push('পাসওয়ার্ড প্রদান করুন (Password is required).');
   }
 
   if (errors.length > 0) {
@@ -150,15 +174,21 @@ const validateLogin = (req, res, next) => {
 };
 
 /**
- * Validate Forgot Password Payload
+ * Validate Forgot Password Payload (Supports Email and Phone)
  */
 const validateForgotPassword = (req, res, next) => {
-  const { phoneNumber } = req.body;
+  const { email, phoneNumber } = req.body;
   const errors = [];
 
-  if (!phoneNumber) {
-    errors.push('Phone number is required.');
-  } else {
+  if (!email && !phoneNumber) {
+    errors.push('ইমেইল অথবা মোবাইল নম্বর প্রদান করুন (Email or Phone number is required).');
+  }
+
+  if (email) {
+    req.body.email = String(email).trim().toLowerCase();
+  }
+
+  if (phoneNumber) {
     req.body.phoneNumber = normalizePhoneNumber(phoneNumber);
   }
 
@@ -174,24 +204,30 @@ const validateForgotPassword = (req, res, next) => {
 };
 
 /**
- * Validate Reset Password Payload
+ * Validate Reset Password Payload (Supports Email and Phone)
  */
 const validateResetPassword = (req, res, next) => {
-  const { phoneNumber, otp, newPassword } = req.body;
+  const { email, phoneNumber, otp, newPassword } = req.body;
   const errors = [];
 
-  if (!phoneNumber) {
-    errors.push('Phone number is required.');
-  } else {
+  if (!email && !phoneNumber) {
+    errors.push('ইমেইল অথবা মোবাইল নম্বর প্রদান করুন (Email or Phone number is required).');
+  }
+
+  if (email) {
+    req.body.email = String(email).trim().toLowerCase();
+  }
+
+  if (phoneNumber) {
     req.body.phoneNumber = normalizePhoneNumber(phoneNumber);
   }
 
-  if (!otp) {
-    errors.push('OTP is required.');
+  if (!otp || String(otp).trim().length === 0) {
+    errors.push('ওটিপি কোড প্রদান করুন (OTP is required).');
   }
 
   if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
-    errors.push('New password is required and must be at least 6 characters long.');
+    errors.push('নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে (New password must be at least 6 characters long).');
   }
 
   if (errors.length > 0) {

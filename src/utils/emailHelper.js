@@ -1,0 +1,105 @@
+const nodemailer = require('nodemailer');
+const env = require('../config/env');
+
+let transporter = null;
+
+if (env.SMTP_USER && env.SMTP_PASS) {
+  transporter = nodemailer.createTransport({
+    host: env.SMTP_HOST,
+    port: env.SMTP_PORT,
+    secure: env.SMTP_PORT === 465, // true for 465, false for 587
+    auth: {
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+    },
+  });
+  console.log('📧 [Email Service] SMTP Transporter configured for:', env.SMTP_USER);
+} else {
+  console.log('📧 [Email Service] No SMTP credentials provided, running in development logging mode.');
+}
+
+/**
+ * Send an OTP verification email to the user
+ * @param {Object} options
+ * @param {string} options.email
+ * @param {string} options.otp
+ * @param {'REGISTRATION'|'FORGOT_PASSWORD'} options.purpose
+ */
+const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
+  const isRegistration = purpose === 'REGISTRATION';
+  const subject = isRegistration
+    ? `ভাড়াটিয়া (Varatia) - রেজিস্ট্রেশন ভেরিফিকেশন কোড: ${otp}`
+    : `ভাড়াটিয়া (Varatia) - পাসওয়ার্ড রিসেট ভেরিফিকেশন কোড: ${otp}`;
+
+  const headingText = isRegistration
+    ? 'অ্যাকাউন্ট ভেরিফিকেশন কোড'
+    : 'পাসওয়ার্ড রিসেট ভেরিফিকেশন কোড';
+
+  const subText = isRegistration
+    ? 'ভাড়াটিয়া (Varatia) অ্যাপে অ্যাকাউন্ট খোলার জন্য ধন্যবাদ। আপনার ইমেইল যাচাই করতে নিচের ৪ ডিজিটের ওটিপি কোডটি ব্যবহার করুন:'
+    : 'আপনার ভাড়াটিয়া (Varatia) অ্যাকাউন্টের পাসওয়ার্ড রিসেট করার জন্য অনুরোধ পাওয়া গেছে। পাসওয়ার্ড পরিবর্তন করতে নিচের ওটিপি কোডটি ব্যবহার করুন:';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>${subject}</title>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+        .card { max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .logo { font-size: 24px; font-weight: 800; color: #0284c7; text-align: center; margin-bottom: 24px; }
+        .heading { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 12px; text-align: center; }
+        .text { font-size: 14px; line-height: 1.6; color: #475569; margin-bottom: 24px; text-align: center; }
+        .otp-box { background: #f0f9ff; border: 2px dashed #0284c7; border-radius: 12px; padding: 18px; text-align: center; margin: 0 auto 24px auto; max-width: 240px; }
+        .otp-code { font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #0284c7; }
+        .footer { font-size: 12px; color: #94a3b8; text-align: center; line-height: 1.5; border-top: 1px solid #f1f5f9; padding-top: 20px; }
+        .warning { color: #dc2626; font-size: 12px; text-align: center; margin-bottom: 16px; font-weight: 500; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="logo">🏠 ভাড়াটিয়া (Varatia)</div>
+        <div class="heading">${headingText}</div>
+        <div class="text">${subText}</div>
+        <div class="otp-box">
+          <div class="otp-code">${otp}</div>
+        </div>
+        <div class="warning">⚠️ এই কোডটি ৫ মিনিটের জন্য কার্যকর থাকবে। এটি কারও সাথে শেয়ার করবেন না।</div>
+        <div class="footer">
+          যদি আপনি এই কোডটির জন্য অনুরোধ না করে থাকেন, তবে অনুগ্রহ করে এই ইমেইলটি উপেক্ষা করুন।<br>
+          &copy; ২০২৬ ভাড়াটিয়া (Varatia) টিম। সর্বস্বত্ব সংরক্ষিত।
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  console.log(`\n======================================================`);
+  console.log(`📧 [EMAIL OTP DISPATCH] -> To: ${email}`);
+  console.log(`🔑 Purpose: ${purpose} | Code: [ ${otp} ] (Valid: ${env.OTP_EXPIRY_MINUTES} mins)`);
+  console.log(`======================================================\n`);
+
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: env.EMAIL_FROM,
+        to: email,
+        subject,
+        html,
+        text: `${headingText}\n${subText}\n\nআপনার ওটিপি কোড: ${otp}\n(মেয়াদ: ৫ মিনিট)`,
+      });
+      console.log(`📧 [Email Sent Success] MessageId: ${info.messageId}`);
+      return { success: true, messageId: info.messageId };
+    } catch (err) {
+      console.error(`❌ [Email Send Failure] Error sending email to ${email}:`, err.message);
+      return { success: false, error: err.message };
+    }
+  }
+
+  return { success: true, mode: 'development_console_log' };
+};
+
+module.exports = {
+  sendEmailOtp,
+};

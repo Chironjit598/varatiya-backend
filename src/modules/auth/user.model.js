@@ -24,7 +24,11 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       trim: true,
-      default: null,
+      lowercase: true,
+      required: [true, 'Email is required'],
+      unique: true,
+      sparse: true,
+      index: true,
     },
     role: {
       type: String,
@@ -37,6 +41,10 @@ const userSchema = new mongoose.Schema(
     isPhoneVerified: {
       type: Boolean,
       default: true,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
     },
     avatar: {
       type: String,
