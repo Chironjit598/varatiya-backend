@@ -17,6 +17,8 @@ class PropertyService {
     const obj = typeof doc.toJSON === 'function' ? doc.toJSON() : { ...doc };
     obj.id = (obj.id || obj._id || '').toString();
     obj._id = obj._id || obj.id;
+    obj.isCommunityPaused = Boolean(obj.isCommunityPaused);
+    obj.alreadyRentedReportCount = Number(obj.alreadyRentedReportCount) || 0;
     return obj;
   }
 

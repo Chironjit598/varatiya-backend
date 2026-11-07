@@ -62,3 +62,4 @@ propertyReportSchema.index({ propertyId: 1, userId: 1, status: 1 });
 const PropertyReport = mongoose.model('PropertyReport', propertyReportSchema);
 
 module.exports = PropertyReport;
+
