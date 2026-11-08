@@ -460,10 +460,13 @@ class AuthService {
       throw error;
     }
 
-    user.password = newPassword; // Handled by pre-save bcrypt hook
-    user.isEmailVerified = true;
-    user.isPhoneVerified = true;
-    await user.save();
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await User.findByIdAndUpdate(user._id, {
+      password: hashedPassword,
+      isEmailVerified: true,
+      isPhoneVerified: true,
+    });
 
     // Invalidate OTPs
     await OTP.deleteMany(cleanEmail ? { email: cleanEmail, purpose: 'FORGOT_PASSWORD' } : { phoneNumber: cleanPhone, purpose: 'FORGOT_PASSWORD' });
@@ -490,8 +493,9 @@ class AuthService {
       throw error;
     }
 
-    user.password = newPassword; // Handled by pre-save hook
-    await user.save();
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    await User.findByIdAndUpdate(userId, { password: hashedPassword });
 
     return true;
   }
