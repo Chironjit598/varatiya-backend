@@ -51,8 +51,8 @@ app.use((req, res, next) => {
 // Apply general rate limiter across all incoming requests
 app.use(generalRateLimiter);
 
-// Health check endpoint
-app.get('/health', (req, res) => {
+// Health check endpoint (Supports both /health and Render's default /healthz)
+app.get(['/health', '/healthz'], (req, res) => {
   return ApiResponse.success(res, {
     statusCode: 200,
     message: 'Varatia Backend API is healthy and operational',
