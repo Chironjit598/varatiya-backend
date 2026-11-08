@@ -3,6 +3,7 @@ const PropertyReport = require('./propertyReport.model');
 const ManagedMess = require('../mess/mess.model');
 const alertService = require('../alert/alert.service');
 const notificationService = require('../notification/notification.service');
+const locationHelper = require('../../utils/locationHelper');
 const {
   buildMessRooms,
   normalizeRoomsArray,
@@ -19,6 +20,10 @@ class PropertyService {
     obj._id = obj._id || obj.id;
     obj.isCommunityPaused = Boolean(obj.isCommunityPaused);
     obj.alreadyRentedReportCount = Number(obj.alreadyRentedReportCount) || 0;
+    if (doc.locationTier !== undefined) {
+      obj.locationTier = Number(doc.locationTier);
+      obj.isNearby = obj.locationTier <= 2;
+    }
     return obj;
   }
 
@@ -183,6 +188,11 @@ class PropertyService {
       propertyData.location = {
         type: 'Point',
         coordinates: [Number(longitude), Number(latitude)],
+      };
+    } else {
+      propertyData.location = {
+        type: 'Point',
+        coordinates: locationHelper.getCoordinatesForArea(area, subArea),
       };
     }
 
@@ -379,23 +389,180 @@ class PropertyService {
       }
     }
 
-    // Sorting
-    let sort = { createdAt: -1 };
+    // Sorting base
+    let baseSort = { createdAt: -1 };
     if (queryParams.sortBy === 'price_asc') {
-      sort = { rentPrice: 1, createdAt: -1 };
+      baseSort = { rentPrice: 1, createdAt: -1 };
     } else if (queryParams.sortBy === 'price_desc') {
-      sort = { rentPrice: -1, createdAt: -1 };
+      baseSort = { rentPrice: -1, createdAt: -1 };
     }
 
-    const [total, rawProperties] = await Promise.all([
-      Property.countDocuments(filter),
-      Property.find(filter)
-        .sort(sort)
-        .skip(skip)
-        .limit(limit)
-        .populate('owner', 'name phoneNumber avatar isPhoneVerified')
-        .lean(),
-    ]);
+    // Smart location detection
+    let targetArea = queryParams.userArea ? queryParams.userArea.trim() : '';
+    let targetSubArea = queryParams.userSubArea ? queryParams.userSubArea.trim() : '';
+    let detectedLocationMeta = null;
+
+    if (!targetArea && queryParams.lat && queryParams.lng && !queryParams.radiusKm) {
+      const detected = locationHelper.detectAreaFromCoordinates(
+        queryParams.lat,
+        queryParams.lng
+      );
+      if (detected) {
+        targetArea = detected.area;
+        if (!targetSubArea && detected.subArea) {
+          targetSubArea = detected.subArea;
+        }
+        detectedLocationMeta = {
+          isLocationAware: true,
+          detectedFrom: 'gps',
+          coordinates: [Number(queryParams.lng), Number(queryParams.lat)],
+          detectedArea: detected.area,
+          detectedBanglaArea: detected.banglaName,
+          detectedSubArea: detected.subArea || null,
+          distanceKm: detected.distanceKm,
+        };
+      }
+    } else if (targetArea) {
+      detectedLocationMeta = {
+        isLocationAware: true,
+        detectedFrom: 'query',
+        detectedArea: targetArea,
+        detectedSubArea: targetSubArea || null,
+      };
+    }
+
+    const isLocationAware = Boolean(targetArea || targetSubArea);
+    let total = 0;
+    let rawProperties = [];
+
+    if (isLocationAware) {
+      const areaRegexPattern = targetArea
+        ? locationHelper.buildAreaRegexPattern(targetArea)
+        : '';
+      const subAreaRegexPattern = targetSubArea
+        ? locationHelper.buildSubAreaRegexPattern(targetSubArea)
+        : '';
+
+      const isAreaMatch = areaRegexPattern
+        ? {
+            $or: [
+              {
+                $regexMatch: {
+                  input: { $ifNull: ['$area', ''] },
+                  regex: areaRegexPattern,
+                  options: 'i',
+                },
+              },
+              {
+                $regexMatch: {
+                  input: { $ifNull: ['$detailedAddress', ''] },
+                  regex: areaRegexPattern,
+                  options: 'i',
+                },
+              },
+            ],
+          }
+        : null;
+
+      const isSubAreaMatch = subAreaRegexPattern
+        ? {
+            $or: [
+              {
+                $regexMatch: {
+                  input: { $ifNull: ['$subArea', ''] },
+                  regex: subAreaRegexPattern,
+                  options: 'i',
+                },
+              },
+              {
+                $regexMatch: {
+                  input: { $ifNull: ['$detailedAddress', ''] },
+                  regex: subAreaRegexPattern,
+                  options: 'i',
+                },
+              },
+              {
+                $regexMatch: {
+                  input: { $ifNull: ['$area', ''] },
+                  regex: subAreaRegexPattern,
+                  options: 'i',
+                },
+              },
+            ],
+          }
+        : null;
+
+      let locationTierExpr = 3;
+
+      if (isAreaMatch && isSubAreaMatch) {
+        locationTierExpr = {
+          $cond: {
+            if: { $and: [isAreaMatch, isSubAreaMatch] },
+            then: 1, // Tier 1: Exact Sub-area & Area match
+            else: {
+              $cond: {
+                if: isAreaMatch,
+                then: 2, // Tier 2: Same general area
+                else: 3, // Tier 3: Other posts
+              },
+            },
+          },
+        };
+      } else if (isAreaMatch) {
+        locationTierExpr = {
+          $cond: {
+            if: isAreaMatch,
+            then: 1, // Matches area
+            else: 2, // Other posts
+          },
+        };
+      } else if (isSubAreaMatch) {
+        locationTierExpr = {
+          $cond: {
+            if: isSubAreaMatch,
+            then: 1, // Matches sub-area
+            else: 2, // Other posts
+          },
+        };
+      }
+
+      const sort = { locationTier: 1, ...baseSort };
+
+      const [facetResult] = await Property.aggregate([
+        { $match: filter },
+        { $addFields: { locationTier: locationTierExpr } },
+        { $sort: sort },
+        {
+          $facet: {
+            data: [{ $skip: skip }, { $limit: limit }],
+            totalCount: [{ $count: 'count' }],
+          },
+        },
+      ]);
+
+      total = facetResult?.totalCount?.[0]?.count || 0;
+      rawProperties = facetResult?.data || [];
+
+      if (rawProperties.length > 0) {
+        await Property.populate(rawProperties, {
+          path: 'owner',
+          select: 'name phoneNumber avatar isPhoneVerified',
+        });
+      }
+    } else {
+      const [countResult, findResult] = await Promise.all([
+        Property.countDocuments(filter),
+        Property.find(filter)
+          .sort(baseSort)
+          .skip(skip)
+          .limit(limit)
+          .populate('owner', 'name phoneNumber avatar isPhoneVerified')
+          .lean(),
+      ]);
+
+      total = countResult;
+      rawProperties = findResult;
+    }
 
     const properties = rawProperties.map((p) => this.formatProperty(p));
     const totalPages = Math.ceil(total / limit) || 1;
@@ -409,6 +576,9 @@ class PropertyService {
         totalPages,
         hasNextPage: page < totalPages,
         hasPrevPage: page > 1,
+      },
+      userLocation: detectedLocationMeta || {
+        isLocationAware: false,
       },
     };
   }
@@ -559,6 +729,11 @@ class PropertyService {
       property.location = {
         type: 'Point',
         coordinates: [Number(payload.longitude), Number(payload.latitude)],
+      };
+    } else if (payload.area !== undefined || payload.subArea !== undefined) {
+      property.location = {
+        type: 'Point',
+        coordinates: locationHelper.getCoordinatesForArea(property.area, property.subArea),
       };
     }
 
