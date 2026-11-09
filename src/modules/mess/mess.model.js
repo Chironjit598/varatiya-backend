@@ -91,8 +91,8 @@ const messMemberSchema = new mongoose.Schema(
 
 const bazarRosterScheduleSchema = new mongoose.Schema(
   {
-    id: { type: String, required: true },
-    date: { type: String, required: true }, // e.g. '2026-11-10'
+    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    date: { type: String, default: '' }, // e.g. '2026-11-10'
     dayNumber: { type: Number, default: 1 },
     memberIds: { type: [String], default: [] },
     memberNames: { type: [String], default: [] },
@@ -105,8 +105,8 @@ const bazarRosterScheduleSchema = new mongoose.Schema(
 
 const cleaningRosterScheduleSchema = new mongoose.Schema(
   {
-    id: { type: String, required: true },
-    date: { type: String, required: true }, // e.g. '2026-11-10'
+    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    date: { type: String, default: '' }, // e.g. '2026-11-10'
     dayNumber: { type: Number, default: 1 },
     memberIds: { type: [String], default: [] },
     memberNames: { type: [String], default: [] },
@@ -120,10 +120,10 @@ const cleaningRosterScheduleSchema = new mongoose.Schema(
 
 const developmentFundFeeSchema = new mongoose.Schema(
   {
-    id: { type: String, required: true },
-    memberId: { type: String, required: true },
-    memberName: { type: String, required: true },
-    amount: { type: Number, required: true },
+    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    memberId: { type: String, default: '' },
+    memberName: { type: String, default: '' },
+    amount: { type: Number, default: 0 },
     month: { type: String, default: '' },
     paidAt: { type: Date, default: Date.now },
     note: { type: String, default: '' },
@@ -133,9 +133,9 @@ const developmentFundFeeSchema = new mongoose.Schema(
 
 const developmentFundExpenseSchema = new mongoose.Schema(
   {
-    id: { type: String, required: true },
-    title: { type: String, required: true },
-    amount: { type: Number, required: true },
+    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    title: { type: String, default: '' },
+    amount: { type: Number, default: 0 },
     date: { type: Date, default: Date.now },
     note: { type: String, default: '' },
     recordedBy: { type: String, default: 'মেস কন্ট্রোলার' },

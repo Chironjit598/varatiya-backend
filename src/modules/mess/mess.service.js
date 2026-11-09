@@ -648,8 +648,12 @@ class MessService {
         phone: registeredUser.phoneNumber,
         isAdmin: false,
         isManager: false,
+        role: 'border',
         totalMealsConsumed: 0,
         totalMoneyDeposited: resolvedAdvanceDeposit,
+        paidRent: 0,
+        paidUtility: 0,
+        paidDevelopmentFee: 0,
         todayMealSlots: Array(mealsPerDay).fill(true),
         customDateSlots: {},
       });
