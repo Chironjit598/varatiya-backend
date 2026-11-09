@@ -81,14 +81,20 @@ class AuthService {
     });
 
     // Send OTP via Email first (as requested) or SMS fallback
+    // Dispatched asynchronously so SMTP/gateway latency does not block client response or cause mobile TimeoutException
     if (email) {
-      await sendEmailOtp({ email, otp: rawOtp, purpose });
+      sendEmailOtp({ email, otp: rawOtp, purpose }).catch((err) =>
+        console.error(`[Email Send Error]: ${err.message}`)
+      );
     } else if (phoneNumber) {
-      const message = purpose === 'REGISTRATION'
-        ? `Your Varatia registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
-        : `Your Varatia password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
+      const message =
+        purpose === 'REGISTRATION'
+          ? `Your Varatia registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
+          : `Your Varatia password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
 
-      await sendSMS({ phoneNumber, message, otp: rawOtp });
+      sendSMS({ phoneNumber, message, otp: rawOtp }).catch((err) =>
+        console.error(`[SMS Send Error]: ${err.message}`)
+      );
     }
 
     return {
