@@ -205,6 +205,12 @@ class PropertyService {
           ? property.buildingName.trim()
           : property.title;
 
+      const autoOperatingMode = locationHelper.isDhakaArea(
+        property.area || property.detailedAddress
+      )
+        ? 'dhaka_centralized'
+        : 'student_shared';
+
       await ManagedMess.findOneAndUpdate(
         { _id: property._id },
         {
@@ -214,6 +220,7 @@ class PropertyService {
             name: messName,
             address: property.detailedAddress,
             area: property.area,
+            operatingMode: autoOperatingMode,
             managerId: userId.toString(),
             managerName: resolvedLandlordName,
             managerPhone: resolvedContactPhone || resolvedLandlordPhone,
@@ -241,6 +248,9 @@ class PropertyService {
                 }))
               : [],
             notices: [],
+            bazarRoster: { schedule: [] },
+            cleaningRoster: { schedule: [] },
+            developmentFund: { monthlyFeePerMember: 0, collections: [], expenses: [] },
             members: [
               {
                 id: userId.toString(),
@@ -248,8 +258,12 @@ class PropertyService {
                 phone: resolvedContactPhone || resolvedLandlordPhone,
                 isAdmin: true,
                 isManager: true,
+                role: 'controller',
                 totalMealsConsumed: 0,
                 totalMoneyDeposited: 0,
+                paidRent: 0,
+                paidUtility: 0,
+                paidDevelopmentFee: 0,
                 todayMealSlots: [true, true],
                 customDateSlots: {},
               },
@@ -259,6 +273,7 @@ class PropertyService {
             mealConfig: {
               messName,
               mealsPerDay: 2,
+              slotNames: ['দুপুর (Lunch)', 'রাত (Dinner)'],
               managerId: userId.toString(),
               managerName: resolvedLandlordName || 'মেস ম্যানেজার',
               currentMonth: property.availableMonth || 'নভেম্বর ২০২৬',
@@ -829,12 +844,19 @@ class PropertyService {
         }
         await linkedMess.save();
       } else {
+        const autoOperatingMode = locationHelper.isDhakaArea(
+          property.area || property.detailedAddress
+        )
+          ? 'dhaka_centralized'
+          : 'student_shared';
+
         await ManagedMess.create({
           _id: property._id,
           propertyId: property._id,
           name: messName,
           address: property.detailedAddress,
           area: property.area,
+          operatingMode: autoOperatingMode,
           managerId: userId.toString(),
           managerName: property.landlordName || 'মেস ম্যানেজার',
           managerPhone: property.contactPhone || property.landlordPhone || '',
@@ -850,6 +872,9 @@ class PropertyService {
           isUtilitySeparate: property.isUtilitySeparate,
           utilityBills: property.utilityBills,
           showUtilityAmountToSeekers: property.showUtilityAmountToSeekers,
+          bazarRoster: { schedule: [] },
+          cleaningRoster: { schedule: [] },
+          developmentFund: { monthlyFeePerMember: 0, collections: [], expenses: [] },
           members: [
             {
               id: userId.toString(),
@@ -857,8 +882,12 @@ class PropertyService {
               phone: property.contactPhone || property.landlordPhone || '',
               isAdmin: true,
               isManager: true,
+              role: 'controller',
               totalMealsConsumed: 0,
               totalMoneyDeposited: 0,
+              paidRent: 0,
+              paidUtility: 0,
+              paidDevelopmentFee: 0,
               todayMealSlots: [true, true],
               customDateSlots: {},
             },
@@ -866,6 +895,7 @@ class PropertyService {
           mealConfig: {
             messName,
             mealsPerDay: 2,
+            slotNames: ['দুপুর (Lunch)', 'রাত (Dinner)'],
             managerId: userId.toString(),
             managerName: property.landlordName || 'মেস ম্যানেজার',
             currentMonth: property.availableMonth || 'নভেম্বর ২০২৬',
