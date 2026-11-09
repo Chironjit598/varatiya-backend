@@ -511,7 +511,7 @@ class MessController {
    */
   async getBazarRoster(req, res, next) {
     try {
-      const result = await messService.getBazarRoster(req.params.messId, req.user);
+      const result = await messService.getBazarRoster(req.params.messId, req.user, req.query);
 
       return ApiResponse.success(res, {
         statusCode: 200,
@@ -528,7 +528,7 @@ class MessController {
    */
   async setBazarRoster(req, res, next) {
     try {
-      const mess = await messService.setBazarRoster(
+      const result = await messService.setBazarRoster(
         req.params.messId,
         req.user,
         req.body
@@ -538,8 +538,9 @@ class MessController {
         statusCode: 200,
         message: 'বাজার রোস্টার সফলভাবে সেভ করা হয়েছে',
         data: {
-          mess,
-          managedMess: mess,
+          bazarRoster: result.bazarRoster,
+          mess: result.mess,
+          managedMess: result.mess,
         },
       });
     } catch (error) {
@@ -601,7 +602,7 @@ class MessController {
    */
   async getCleaningRoster(req, res, next) {
     try {
-      const result = await messService.getCleaningRoster(req.params.messId, req.user);
+      const result = await messService.getCleaningRoster(req.params.messId, req.user, req.query);
 
       return ApiResponse.success(res, {
         statusCode: 200,
@@ -618,7 +619,7 @@ class MessController {
    */
   async setCleaningRoster(req, res, next) {
     try {
-      const mess = await messService.setCleaningRoster(
+      const result = await messService.setCleaningRoster(
         req.params.messId,
         req.user,
         req.body
@@ -628,8 +629,9 @@ class MessController {
         statusCode: 200,
         message: 'পরিষ্কারের তালিকা সফলভাবে সেভ করা হয়েছে',
         data: {
-          mess,
-          managedMess: mess,
+          cleaningRoster: result.cleaningRoster,
+          mess: result.mess,
+          managedMess: result.mess,
         },
       });
     } catch (error) {

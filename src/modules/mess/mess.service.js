@@ -1967,7 +1967,11 @@ class MessService {
   /**
    * Get Bazar Roster (Visible to all borders and managers)
    */
-  async getBazarRoster(messId, user) {
+  /**
+   * Get Bazar Roster (Visible to all borders and managers)
+   * GET /api/messes/:messId/bazar-roster
+   */
+  async getBazarRoster(messId, user, query = {}) {
     const mess = await ManagedMess.findById(messId);
     if (!mess) {
       const error = new Error('মেসটি পাওয়া যায়নি');
@@ -1975,14 +1979,59 @@ class MessService {
       throw error;
     }
 
+    const requestedMonth = query.month ? String(query.month).trim() : null;
+    let targetRoster = null;
+
+    if (requestedMonth && Array.isArray(mess.bazarRosters)) {
+      targetRoster = mess.bazarRosters.find(
+        (r) => r.month && r.month.trim() === requestedMonth
+      );
+    }
+
+    if (!targetRoster && mess.bazarRoster) {
+      if (typeof mess.bazarRoster === 'object' && !Array.isArray(mess.bazarRoster)) {
+        if (!requestedMonth || (mess.bazarRoster.month && mess.bazarRoster.month.trim() === requestedMonth)) {
+          targetRoster = mess.bazarRoster;
+        }
+      }
+    }
+
+    if (!targetRoster) {
+      if (Array.isArray(mess.bazarRosters) && mess.bazarRosters.length > 0) {
+        targetRoster = mess.bazarRosters[mess.bazarRosters.length - 1];
+      } else if (mess.bazarRoster && !Array.isArray(mess.bazarRoster) && typeof mess.bazarRoster === 'object') {
+        targetRoster = mess.bazarRoster;
+      } else {
+        targetRoster = {
+          month: requestedMonth || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+          schedule: Array.isArray(mess.bazarRoster) ? mess.bazarRoster : [],
+        };
+      }
+    }
+
+    const cleanSchedule = (Array.isArray(targetRoster.schedule) ? targetRoster.schedule : []).map((s, idx) => ({
+      id: s.id ? String(s.id).trim() : `roster_${s.dayNumber || idx + 1}`,
+      dayNumber: Number(s.dayNumber) || idx + 1,
+      date: s.date || '',
+      memberIds: Array.isArray(s.memberIds) ? s.memberIds.map(String) : [],
+      memberNames: Array.isArray(s.memberNames) ? s.memberNames.map(String) : [],
+      note: s.note || '',
+      isCompleted: Boolean(s.isCompleted),
+      notificationSent: Boolean(s.notificationSent),
+    }));
+
     return {
+      bazarRoster: {
+        month: targetRoster.month || requestedMonth || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+        schedule: cleanSchedule,
+      },
       operatingMode: mess.operatingMode || 'student_shared',
-      bazarRoster: mess.bazarRoster || { month: '', note: '', schedule: [] },
     };
   }
 
   /**
    * Set or Replace Entire Bazar Roster (30 days schedule)
+   * POST /api/messes/:messId/bazar-roster
    */
   async setBazarRoster(messId, user, payload) {
     const mess = await ManagedMess.findById(messId);
@@ -1992,44 +2041,60 @@ class MessService {
       throw error;
     }
 
-    const userIdStr = (user._id || user.id).toString();
-    const memberObj = (mess.members || []).find(
-      (m) => m.id === userIdStr || m.phone === user.phoneNumber
-    );
-    const canManage =
-      mess.managerId === userIdStr ||
-      (memberObj &&
-        ['controller', 'manager', 'meal_incharge'].includes(memberObj.role)) ||
-      (memberObj && (memberObj.isAdmin || memberObj.isManager));
-
-    if (!canManage) {
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user, 'meal_bazar');
+    if (!isAuthorized) {
       const error = new Error('বাজার রোস্টার তৈরি বা পরিবর্তন করার অনুমতি আপনার নেই');
       error.statusCode = 403;
       throw error;
     }
 
-    const { month, note, schedule } = payload;
-    mess.bazarRoster = mess.bazarRoster || {};
-    if (month !== undefined) mess.bazarRoster.month = month;
-    if (note !== undefined) mess.bazarRoster.note = note;
+    const targetMonth = (payload.month || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬').trim();
+    const rawSchedule = Array.isArray(payload.schedule) ? payload.schedule : [];
 
-    if (Array.isArray(schedule)) {
-      mess.bazarRoster.schedule = schedule.map((s, idx) => ({
-        id: s.id || new mongoose.Types.ObjectId().toString(),
+    const formattedSchedule = rawSchedule.map((s, idx) => {
+      const dayNum = parseInt(s.dayNumber, 10);
+      const validDayNumber = !isNaN(dayNum) && dayNum >= 1 && dayNum <= 31 ? dayNum : Math.min(31, Math.max(1, idx + 1));
+
+      return {
+        id: s.id ? String(s.id).trim() : `roster_${validDayNumber}`,
+        dayNumber: validDayNumber,
         date: s.date ? this.toDateKey(s.date) : '',
-        dayNumber: Number(s.dayNumber) || idx + 1,
-        memberIds: Array.isArray(s.memberIds) ? s.memberIds : [],
-        memberNames: Array.isArray(s.memberNames) ? s.memberNames : [],
-        note: s.note || '',
+        memberIds: Array.isArray(s.memberIds) ? s.memberIds.map(String) : [],
+        memberNames: Array.isArray(s.memberNames) ? s.memberNames.map(String) : [],
+        note: s.note ? String(s.note).trim() : '',
         isCompleted: Boolean(s.isCompleted),
         notificationSent: Boolean(s.notificationSent),
-      }));
+      };
+    });
+
+    const newRosterData = {
+      month: targetMonth,
+      note: payload.note ? String(payload.note).trim() : '',
+      schedule: formattedSchedule,
+    };
+
+    // Rule 3: If a roster already exists for that month, update/overwrite the month's schedule
+    mess.bazarRosters = Array.isArray(mess.bazarRosters) ? mess.bazarRosters : [];
+    const existingIndex = mess.bazarRosters.findIndex(
+      (r) => r.month && r.month.trim() === targetMonth
+    );
+
+    if (existingIndex >= 0) {
+      mess.bazarRosters[existingIndex] = newRosterData;
+    } else {
+      mess.bazarRosters.push(newRosterData);
     }
 
+    mess.bazarRoster = newRosterData;
+
     mess.markModified('bazarRoster');
+    mess.markModified('bazarRosters');
     await mess.save();
 
-    return formatManagedMess(mess);
+    return {
+      bazarRoster: newRosterData,
+      mess: formatManagedMess(mess),
+    };
   }
 
   /**
@@ -2043,7 +2108,10 @@ class MessService {
       throw error;
     }
 
-    mess.bazarRoster = mess.bazarRoster || { schedule: [] };
+    mess.bazarRoster = (mess.bazarRoster && !Array.isArray(mess.bazarRoster) && typeof mess.bazarRoster === 'object')
+      ? mess.bazarRoster
+      : { month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬', schedule: Array.isArray(mess.bazarRoster) ? mess.bazarRoster : [] };
+
     const schedule = mess.bazarRoster.schedule || [];
     let entry = schedule.find(
       (s) => s.id === entryId || (s._id && s._id.toString() === entryId)
@@ -2059,11 +2127,7 @@ class MessService {
       (entry.memberIds.includes(userIdStr) ||
         (memberObj && entry.memberNames?.includes(memberObj.name)));
 
-    const canManage =
-      mess.managerId === userIdStr ||
-      (memberObj &&
-        ['controller', 'manager', 'meal_incharge'].includes(memberObj.role)) ||
-      (memberObj && (memberObj.isAdmin || memberObj.isManager));
+    const { isAuthorized: canManage } = this.checkMessManagerOrAdmin(mess, user, 'meal_bazar');
 
     if (!canManage && !isAssigned) {
       const error = new Error('আপনার এই রোস্টার এন্ট্রি আপডেট করার অনুমতি নেই');
@@ -2072,13 +2136,15 @@ class MessService {
     }
 
     if (!entry) {
+      const dayNum = parseInt(payload.dayNumber, 10);
+      const validDayNumber = !isNaN(dayNum) && dayNum >= 1 && dayNum <= 31 ? dayNum : Math.min(31, Math.max(1, schedule.length + 1));
       entry = {
-        id: entryId || new mongoose.Types.ObjectId().toString(),
+        id: entryId || `roster_${validDayNumber}`,
         date: payload.date ? this.toDateKey(payload.date) : '',
-        dayNumber: Number(payload.dayNumber) || schedule.length + 1,
-        memberIds: Array.isArray(payload.memberIds) ? payload.memberIds : [],
-        memberNames: Array.isArray(payload.memberNames) ? payload.memberNames : [],
-        note: payload.note || '',
+        dayNumber: validDayNumber,
+        memberIds: Array.isArray(payload.memberIds) ? payload.memberIds.map(String) : [],
+        memberNames: Array.isArray(payload.memberNames) ? payload.memberNames.map(String) : [],
+        note: payload.note ? String(payload.note).trim() : '',
         isCompleted: Boolean(payload.isCompleted),
         notificationSent: false,
       };
@@ -2086,15 +2152,25 @@ class MessService {
     } else {
       if (canManage) {
         if (payload.date) entry.date = this.toDateKey(payload.date);
-        if (payload.dayNumber !== undefined) entry.dayNumber = Number(payload.dayNumber);
-        if (Array.isArray(payload.memberIds)) entry.memberIds = payload.memberIds;
-        if (Array.isArray(payload.memberNames)) entry.memberNames = payload.memberNames;
+        if (payload.dayNumber !== undefined) {
+          const dayNum = parseInt(payload.dayNumber, 10);
+          if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) entry.dayNumber = dayNum;
+        }
+        if (Array.isArray(payload.memberIds)) entry.memberIds = payload.memberIds.map(String);
+        if (Array.isArray(payload.memberNames)) entry.memberNames = payload.memberNames.map(String);
       }
-      if (payload.note !== undefined) entry.note = payload.note;
+      if (payload.note !== undefined) entry.note = String(payload.note).trim();
       if (payload.isCompleted !== undefined) entry.isCompleted = Boolean(payload.isCompleted);
     }
 
+    // Keep active month roster in bazarRosters in sync
+    if (Array.isArray(mess.bazarRosters) && mess.bazarRoster.month) {
+      const rIdx = mess.bazarRosters.findIndex((r) => r.month === mess.bazarRoster.month);
+      if (rIdx >= 0) mess.bazarRosters[rIdx] = mess.bazarRoster;
+    }
+
     mess.markModified('bazarRoster');
+    mess.markModified('bazarRosters');
     await mess.save();
 
     return formatManagedMess(mess);
@@ -2111,19 +2187,28 @@ class MessService {
       throw error;
     }
 
-    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user, 'meal_bazar');
     if (!isAuthorized) {
       const error = new Error('বাজার রোস্টার এন্ট্রি মুছে ফেলার অনুমতি নেই');
       error.statusCode = 403;
       throw error;
     }
 
-    mess.bazarRoster = mess.bazarRoster || { schedule: [] };
+    mess.bazarRoster = (mess.bazarRoster && !Array.isArray(mess.bazarRoster) && typeof mess.bazarRoster === 'object')
+      ? mess.bazarRoster
+      : { month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬', schedule: Array.isArray(mess.bazarRoster) ? mess.bazarRoster : [] };
+
     mess.bazarRoster.schedule = (mess.bazarRoster.schedule || []).filter(
       (s) => s.id !== entryId && (!s._id || s._id.toString() !== entryId)
     );
 
+    if (Array.isArray(mess.bazarRosters) && mess.bazarRoster.month) {
+      const rIdx = mess.bazarRosters.findIndex((r) => r.month === mess.bazarRoster.month);
+      if (rIdx >= 0) mess.bazarRosters[rIdx] = mess.bazarRoster;
+    }
+
     mess.markModified('bazarRoster');
+    mess.markModified('bazarRosters');
     await mess.save();
 
     return formatManagedMess(mess);
@@ -2131,8 +2216,9 @@ class MessService {
 
   /**
    * Get Cleaning Roster (Transparent to all members)
+   * GET /api/messes/:messId/cleaning-roster
    */
-  async getCleaningRoster(messId, user) {
+  async getCleaningRoster(messId, user, query = {}) {
     const mess = await ManagedMess.findById(messId);
     if (!mess) {
       const error = new Error('মেসটি পাওয়া যায়নি');
@@ -2140,14 +2226,60 @@ class MessService {
       throw error;
     }
 
+    const requestedMonth = query.month ? String(query.month).trim() : null;
+    let targetRoster = null;
+
+    if (requestedMonth && Array.isArray(mess.cleaningRosters)) {
+      targetRoster = mess.cleaningRosters.find(
+        (r) => r.month && r.month.trim() === requestedMonth
+      );
+    }
+
+    if (!targetRoster && mess.cleaningRoster) {
+      if (typeof mess.cleaningRoster === 'object' && !Array.isArray(mess.cleaningRoster)) {
+        if (!requestedMonth || (mess.cleaningRoster.month && mess.cleaningRoster.month.trim() === requestedMonth)) {
+          targetRoster = mess.cleaningRoster;
+        }
+      }
+    }
+
+    if (!targetRoster) {
+      if (Array.isArray(mess.cleaningRosters) && mess.cleaningRosters.length > 0) {
+        targetRoster = mess.cleaningRosters[mess.cleaningRosters.length - 1];
+      } else if (mess.cleaningRoster && !Array.isArray(mess.cleaningRoster) && typeof mess.cleaningRoster === 'object') {
+        targetRoster = mess.cleaningRoster;
+      } else {
+        targetRoster = {
+          month: requestedMonth || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+          schedule: Array.isArray(mess.cleaningRoster) ? mess.cleaningRoster : [],
+        };
+      }
+    }
+
+    const cleanSchedule = (Array.isArray(targetRoster.schedule) ? targetRoster.schedule : []).map((s, idx) => ({
+      id: s.id ? String(s.id).trim() : `clean_${s.dayNumber || idx + 1}`,
+      dayNumber: Number(s.dayNumber) || idx + 1,
+      date: s.date || '',
+      memberIds: Array.isArray(s.memberIds) ? s.memberIds.map(String) : [],
+      memberNames: Array.isArray(s.memberNames) ? s.memberNames.map(String) : [],
+      cleaningArea: s.cleaningArea ? String(s.cleaningArea).trim() : 'টয়লেট ও বেসিন',
+      note: s.note || '',
+      isCompleted: Boolean(s.isCompleted),
+      notificationSent: Boolean(s.notificationSent),
+    }));
+
     return {
+      cleaningRoster: {
+        month: targetRoster.month || requestedMonth || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+        schedule: cleanSchedule,
+      },
       operatingMode: mess.operatingMode || 'student_shared',
-      cleaningRoster: mess.cleaningRoster || { month: '', note: '', schedule: [] },
     };
   }
 
   /**
    * Set or Replace Entire Cleaning Roster
+   * POST /api/messes/:messId/cleaning-roster
    */
   async setCleaningRoster(messId, user, payload) {
     const mess = await ManagedMess.findById(messId);
@@ -2157,45 +2289,61 @@ class MessService {
       throw error;
     }
 
-    const userIdStr = (user._id || user.id).toString();
-    const memberObj = (mess.members || []).find(
-      (m) => m.id === userIdStr || m.phone === user.phoneNumber
-    );
-    const canManage =
-      mess.managerId === userIdStr ||
-      (memberObj &&
-        ['controller', 'manager', 'cleaning_incharge'].includes(memberObj.role)) ||
-      (memberObj && (memberObj.isAdmin || memberObj.isManager));
-
-    if (!canManage) {
-      const error = new Error('পরিষ্কার তালিকা তৈরি বা পরিবর্তন করার অনুমতি আপনার নেই');
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user, 'cleaning');
+    if (!isAuthorized) {
+      const error = new Error('পরিষ্কারের রোস্টার তৈরি বা পরিবর্তন করার অনুমতি আপনার নেই');
       error.statusCode = 403;
       throw error;
     }
 
-    const { month, note, schedule } = payload;
-    mess.cleaningRoster = mess.cleaningRoster || {};
-    if (month !== undefined) mess.cleaningRoster.month = month;
-    if (note !== undefined) mess.cleaningRoster.note = note;
+    const targetMonth = (payload.month || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬').trim();
+    const rawSchedule = Array.isArray(payload.schedule) ? payload.schedule : [];
 
-    if (Array.isArray(schedule)) {
-      mess.cleaningRoster.schedule = schedule.map((s, idx) => ({
-        id: s.id || new mongoose.Types.ObjectId().toString(),
+    const formattedSchedule = rawSchedule.map((s, idx) => {
+      const dayNum = parseInt(s.dayNumber, 10);
+      const validDayNumber = !isNaN(dayNum) && dayNum >= 1 && dayNum <= 31 ? dayNum : Math.min(31, Math.max(1, idx + 1));
+
+      return {
+        id: s.id ? String(s.id).trim() : `clean_${validDayNumber}`,
+        dayNumber: validDayNumber,
         date: s.date ? this.toDateKey(s.date) : '',
-        dayNumber: Number(s.dayNumber) || idx + 1,
-        memberIds: Array.isArray(s.memberIds) ? s.memberIds : [],
-        memberNames: Array.isArray(s.memberNames) ? s.memberNames : [],
-        cleaningArea: s.cleaningArea || 'টয়লেট ও মেস রুম',
-        note: s.note || '',
+        memberIds: Array.isArray(s.memberIds) ? s.memberIds.map(String) : [],
+        memberNames: Array.isArray(s.memberNames) ? s.memberNames.map(String) : [],
+        cleaningArea: s.cleaningArea ? String(s.cleaningArea).trim() : 'টয়লেট ও বেসিন',
+        note: s.note ? String(s.note).trim() : '',
         isCompleted: Boolean(s.isCompleted),
         notificationSent: Boolean(s.notificationSent),
-      }));
+      };
+    });
+
+    const newRosterData = {
+      month: targetMonth,
+      note: payload.note ? String(payload.note).trim() : '',
+      schedule: formattedSchedule,
+    };
+
+    // Rule 3: If a roster already exists for that month, update/overwrite the month's schedule
+    mess.cleaningRosters = Array.isArray(mess.cleaningRosters) ? mess.cleaningRosters : [];
+    const existingIndex = mess.cleaningRosters.findIndex(
+      (r) => r.month && r.month.trim() === targetMonth
+    );
+
+    if (existingIndex >= 0) {
+      mess.cleaningRosters[existingIndex] = newRosterData;
+    } else {
+      mess.cleaningRosters.push(newRosterData);
     }
 
+    mess.cleaningRoster = newRosterData;
+
     mess.markModified('cleaningRoster');
+    mess.markModified('cleaningRosters');
     await mess.save();
 
-    return formatManagedMess(mess);
+    return {
+      cleaningRoster: newRosterData,
+      mess: formatManagedMess(mess),
+    };
   }
 
   /**
@@ -2209,7 +2357,10 @@ class MessService {
       throw error;
     }
 
-    mess.cleaningRoster = mess.cleaningRoster || { schedule: [] };
+    mess.cleaningRoster = (mess.cleaningRoster && !Array.isArray(mess.cleaningRoster) && typeof mess.cleaningRoster === 'object')
+      ? mess.cleaningRoster
+      : { month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬', schedule: Array.isArray(mess.cleaningRoster) ? mess.cleaningRoster : [] };
+
     const schedule = mess.cleaningRoster.schedule || [];
     let entry = schedule.find(
       (s) => s.id === entryId || (s._id && s._id.toString() === entryId)
@@ -2225,11 +2376,7 @@ class MessService {
       (entry.memberIds.includes(userIdStr) ||
         (memberObj && entry.memberNames?.includes(memberObj.name)));
 
-    const canManage =
-      mess.managerId === userIdStr ||
-      (memberObj &&
-        ['controller', 'manager', 'cleaning_incharge'].includes(memberObj.role)) ||
-      (memberObj && (memberObj.isAdmin || memberObj.isManager));
+    const { isAuthorized: canManage } = this.checkMessManagerOrAdmin(mess, user, 'cleaning');
 
     if (!canManage && !isAssigned) {
       const error = new Error('আপনার এই পরিষ্কারের শিডিউল আপডেট করার অনুমতি নেই');
@@ -2238,14 +2385,16 @@ class MessService {
     }
 
     if (!entry) {
+      const dayNum = parseInt(payload.dayNumber, 10);
+      const validDayNumber = !isNaN(dayNum) && dayNum >= 1 && dayNum <= 31 ? dayNum : Math.min(31, Math.max(1, schedule.length + 1));
       entry = {
-        id: entryId || new mongoose.Types.ObjectId().toString(),
+        id: entryId || `clean_${validDayNumber}`,
         date: payload.date ? this.toDateKey(payload.date) : '',
-        dayNumber: Number(payload.dayNumber) || schedule.length + 1,
-        memberIds: Array.isArray(payload.memberIds) ? payload.memberIds : [],
-        memberNames: Array.isArray(payload.memberNames) ? payload.memberNames : [],
-        cleaningArea: payload.cleaningArea || 'টয়লেট ও মেস রুম',
-        note: payload.note || '',
+        dayNumber: validDayNumber,
+        memberIds: Array.isArray(payload.memberIds) ? payload.memberIds.map(String) : [],
+        memberNames: Array.isArray(payload.memberNames) ? payload.memberNames.map(String) : [],
+        cleaningArea: payload.cleaningArea ? String(payload.cleaningArea).trim() : 'টয়লেট ও বেসিন',
+        note: payload.note ? String(payload.note).trim() : '',
         isCompleted: Boolean(payload.isCompleted),
         notificationSent: false,
       };
@@ -2253,16 +2402,25 @@ class MessService {
     } else {
       if (canManage) {
         if (payload.date) entry.date = this.toDateKey(payload.date);
-        if (payload.dayNumber !== undefined) entry.dayNumber = Number(payload.dayNumber);
-        if (Array.isArray(payload.memberIds)) entry.memberIds = payload.memberIds;
-        if (Array.isArray(payload.memberNames)) entry.memberNames = payload.memberNames;
-        if (payload.cleaningArea !== undefined) entry.cleaningArea = payload.cleaningArea;
+        if (payload.dayNumber !== undefined) {
+          const dayNum = parseInt(payload.dayNumber, 10);
+          if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) entry.dayNumber = dayNum;
+        }
+        if (Array.isArray(payload.memberIds)) entry.memberIds = payload.memberIds.map(String);
+        if (Array.isArray(payload.memberNames)) entry.memberNames = payload.memberNames.map(String);
+        if (payload.cleaningArea !== undefined) entry.cleaningArea = String(payload.cleaningArea).trim();
       }
-      if (payload.note !== undefined) entry.note = payload.note;
+      if (payload.note !== undefined) entry.note = String(payload.note).trim();
       if (payload.isCompleted !== undefined) entry.isCompleted = Boolean(payload.isCompleted);
     }
 
+    if (Array.isArray(mess.cleaningRosters) && mess.cleaningRoster.month) {
+      const rIdx = mess.cleaningRosters.findIndex((r) => r.month === mess.cleaningRoster.month);
+      if (rIdx >= 0) mess.cleaningRosters[rIdx] = mess.cleaningRoster;
+    }
+
     mess.markModified('cleaningRoster');
+    mess.markModified('cleaningRosters');
     await mess.save();
 
     return formatManagedMess(mess);
@@ -2279,19 +2437,28 @@ class MessService {
       throw error;
     }
 
-    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user, 'cleaning');
     if (!isAuthorized) {
       const error = new Error('পরিষ্কারের রোস্টার এন্ট্রি মুছে ফেলার অনুমতি নেই');
       error.statusCode = 403;
       throw error;
     }
 
-    mess.cleaningRoster = mess.cleaningRoster || { schedule: [] };
+    mess.cleaningRoster = (mess.cleaningRoster && !Array.isArray(mess.cleaningRoster) && typeof mess.cleaningRoster === 'object')
+      ? mess.cleaningRoster
+      : { month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬', schedule: Array.isArray(mess.cleaningRoster) ? mess.cleaningRoster : [] };
+
     mess.cleaningRoster.schedule = (mess.cleaningRoster.schedule || []).filter(
       (s) => s.id !== entryId && (!s._id || s._id.toString() !== entryId)
     );
 
+    if (Array.isArray(mess.cleaningRosters) && mess.cleaningRoster.month) {
+      const rIdx = mess.cleaningRosters.findIndex((r) => r.month === mess.cleaningRoster.month);
+      if (rIdx >= 0) mess.cleaningRosters[rIdx] = mess.cleaningRoster;
+    }
+
     mess.markModified('cleaningRoster');
+    mess.markModified('cleaningRosters');
     await mess.save();
 
     return formatManagedMess(mess);

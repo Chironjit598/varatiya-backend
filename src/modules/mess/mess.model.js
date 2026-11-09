@@ -95,8 +95,8 @@ const messMemberSchema = new mongoose.Schema(
 const bazarRosterScheduleSchema = new mongoose.Schema(
   {
     id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
-    date: { type: String, default: '' }, // e.g. '2026-11-10'
-    dayNumber: { type: Number, default: 1 },
+    dayNumber: { type: Number, required: true, min: 1, max: 31 },
+    date: { type: String, default: '' }, // e.g. '2026-11-01'
     memberIds: { type: [String], default: [] },
     memberNames: { type: [String], default: [] },
     note: { type: String, default: '' },
@@ -106,17 +106,35 @@ const bazarRosterScheduleSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const bazarRosterSchema = new mongoose.Schema(
+  {
+    month: { type: String, default: 'নভেম্বর ২০২৬' },
+    note: { type: String, default: '' },
+    schedule: { type: [bazarRosterScheduleSchema], default: [] },
+  },
+  { _id: false }
+);
+
 const cleaningRosterScheduleSchema = new mongoose.Schema(
   {
     id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
-    date: { type: String, default: '' }, // e.g. '2026-11-10'
-    dayNumber: { type: Number, default: 1 },
+    dayNumber: { type: Number, required: true, min: 1, max: 31 },
+    date: { type: String, default: '' }, // e.g. '2026-11-01'
     memberIds: { type: [String], default: [] },
     memberNames: { type: [String], default: [] },
-    cleaningArea: { type: String, default: 'টয়লেট ও মেস' },
+    cleaningArea: { type: String, default: 'টয়লেট ও বেসিন' },
     note: { type: String, default: '' },
     isCompleted: { type: Boolean, default: false },
     notificationSent: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const cleaningRosterSchema = new mongoose.Schema(
+  {
+    month: { type: String, default: 'নভেম্বর ২০২৬' },
+    note: { type: String, default: '' },
+    schedule: { type: [cleaningRosterScheduleSchema], default: [] },
   },
   { _id: false }
 );
@@ -225,11 +243,19 @@ const managedMessSchema = new mongoose.Schema(
       default: 'dhaka_centralized',
     },
     bazarRoster: {
-      type: [bazarRosterScheduleSchema],
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({ month: 'নভেম্বর ২০২৬', note: '', schedule: [] }),
+    },
+    bazarRosters: {
+      type: [bazarRosterSchema],
       default: [],
     },
     cleaningRoster: {
-      type: [cleaningRosterScheduleSchema],
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({ month: 'নভেম্বর ২০২৬', note: '', schedule: [] }),
+    },
+    cleaningRosters: {
+      type: [cleaningRosterSchema],
       default: [],
     },
     developmentFund: {

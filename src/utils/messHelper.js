@@ -399,8 +399,49 @@ const formatManagedMess = (messDoc) => {
     expenses: devExpenses,
   };
 
-  mess.bazarRoster = Array.isArray(mess.bazarRoster) ? mess.bazarRoster : [];
-  mess.cleaningRoster = Array.isArray(mess.cleaningRoster) ? mess.cleaningRoster : [];
+  // Normalize bazarRoster and cleaningRoster objects with month and schedule
+  if (mess.bazarRoster && !Array.isArray(mess.bazarRoster) && typeof mess.bazarRoster === 'object') {
+    mess.bazarRoster = {
+      month: mess.bazarRoster.month || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+      note: mess.bazarRoster.note || '',
+      schedule: Array.isArray(mess.bazarRoster.schedule) ? mess.bazarRoster.schedule : [],
+    };
+  } else if (Array.isArray(mess.bazarRoster)) {
+    mess.bazarRoster = {
+      month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+      note: '',
+      schedule: mess.bazarRoster,
+    };
+  } else {
+    mess.bazarRoster = {
+      month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+      note: '',
+      schedule: [],
+    };
+  }
+
+  if (mess.cleaningRoster && !Array.isArray(mess.cleaningRoster) && typeof mess.cleaningRoster === 'object') {
+    mess.cleaningRoster = {
+      month: mess.cleaningRoster.month || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+      note: mess.cleaningRoster.note || '',
+      schedule: Array.isArray(mess.cleaningRoster.schedule) ? mess.cleaningRoster.schedule : [],
+    };
+  } else if (Array.isArray(mess.cleaningRoster)) {
+    mess.cleaningRoster = {
+      month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+      note: '',
+      schedule: mess.cleaningRoster,
+    };
+  } else {
+    mess.cleaningRoster = {
+      month: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+      note: '',
+      schedule: [],
+    };
+  }
+
+  mess.bazarRosters = Array.isArray(mess.bazarRosters) ? mess.bazarRosters : [];
+  mess.cleaningRosters = Array.isArray(mess.cleaningRosters) ? mess.cleaningRosters : [];
 
   mess.members = members.map((m) => {
     const memberObj = typeof m.toJSON === 'function' ? m.toJSON() : { ...m };
