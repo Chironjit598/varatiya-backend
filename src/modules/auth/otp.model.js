@@ -43,7 +43,8 @@ otpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // Instance method to verify hashed OTP
 otpSchema.methods.compareOTP = async function (candidateOtp) {
-  return bcrypt.compare(String(candidateOtp), this.otp);
+  if (!candidateOtp) return false;
+  return bcrypt.compare(String(candidateOtp).trim(), this.otp);
 };
 
 const OTP = mongoose.model('OTP', otpSchema);
