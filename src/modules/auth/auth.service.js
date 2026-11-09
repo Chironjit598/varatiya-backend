@@ -59,8 +59,9 @@ class AuthService {
       }
     }
 
-    // Invalidate any existing pending OTPs for this target and purpose
-    const deleteQuery = { purpose };
+    // Purge expired OTPs older than 10 minutes to prevent DB clutter, while allowing in-flight emails to remain valid within expiry window
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    const deleteQuery = { purpose, createdAt: { $lt: tenMinutesAgo } };
     if (email) {
       deleteQuery.email = email;
     } else if (phoneNumber) {
@@ -101,7 +102,6 @@ class AuthService {
       ...(email ? { email } : {}),
       ...(phoneNumber ? { phoneNumber } : {}),
       otp: rawOtp,
-      devOtp: rawOtp,
     };
   }
 
@@ -163,6 +163,7 @@ class AuthService {
   async verifyOtp({ email, phoneNumber, otp, purpose = 'REGISTRATION' }) {
     const cleanEmail = email ? String(email).toLowerCase().trim() : null;
     const cleanPhone = phoneNumber ? String(phoneNumber).trim() : null;
+    const cleanOtp = String(otp || '').trim();
 
     if (!cleanEmail && !cleanPhone) {
       const error = new Error('Email or phone number is required for OTP verification.');
@@ -170,39 +171,46 @@ class AuthService {
       throw error;
     }
 
-    const query = {
-      purpose,
-      expiresAt: { $gt: new Date() },
-    };
-    if (cleanEmail) {
-      query.email = cleanEmail;
-    } else {
-      query.phoneNumber = cleanPhone;
-    }
-
-    const isMasterOtp = String(otp).trim() === '1234';
-
-    // Find latest valid OTP record
-    const otpRecord = await OTP.findOne(query).sort({ createdAt: -1 });
-
-    if (!otpRecord && !isMasterOtp) {
-      const error = new Error('Invalid or expired OTP. Please request a new one.');
+    if (!cleanOtp) {
+      const error = new Error('ওটিপি কোড প্রদান করুন (OTP code is required).');
       error.statusCode = 400;
       throw error;
     }
 
-    if (!isMasterOtp && otpRecord) {
-      const isMatch = await otpRecord.compareOTP(otp);
-      if (!isMatch) {
-        const error = new Error('Incorrect OTP code. Please check and try again.');
-        error.statusCode = 400;
-        throw error;
+    // Search query matches by email OR phoneNumber
+    const orConditions = [];
+    if (cleanEmail) orConditions.push({ email: cleanEmail });
+    if (cleanPhone) orConditions.push({ phoneNumber: cleanPhone });
+
+    // Find all valid unexpired OTP records for this user
+    const activeOtps = await OTP.find({
+      purpose,
+      expiresAt: { $gt: new Date() },
+      $or: orConditions,
+    }).sort({ createdAt: -1 });
+
+    if (!activeOtps || activeOtps.length === 0) {
+      const error = new Error('ওটিপি কোডের মেয়াদ শেষ হয়ে গেছে বা কোনো ওটিপি পাওয়া যায়নি। অনুগ্রহ করে পুনরায় ওটিপি পাঠান (OTP expired. Please request a new one).');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let isMatch = false;
+    for (const record of activeOtps) {
+      if (await record.compareOTP(cleanOtp)) {
+        isMatch = true;
+        break;
       }
     }
 
+    if (!isMatch) {
+      const error = new Error('ভুল ওটিপি কোড প্রদান করেছেন। অনুগ্রহ করে সঠিক ওটিপি দিন (Incorrect OTP code. Please check and try again).');
+      error.statusCode = 400;
+      throw error;
+    }
+
     if (purpose === 'REGISTRATION') {
-      const userQuery = cleanEmail ? { email: cleanEmail } : { phoneNumber: cleanPhone };
-      const user = await User.findOne(userQuery);
+      const user = await User.findOne({ $or: orConditions });
       if (!user) {
         const error = new Error('User account not found.');
         error.statusCode = 404;
@@ -213,8 +221,11 @@ class AuthService {
       user.isPhoneVerified = true;
       await user.save();
 
-      // Clear used OTPs
-      await OTP.deleteMany(cleanEmail ? { email: cleanEmail, purpose } : { phoneNumber: cleanPhone, purpose });
+      // Clear all used OTPs for this user
+      await OTP.deleteMany({
+        purpose,
+        $or: orConditions,
+      });
 
       const tokens = this.generateTokens(user);
 
@@ -229,6 +240,9 @@ class AuthService {
     return {
       verified: true,
       email: cleanEmail,
+      phoneNumber: cleanPhone,
+    };
+  }
       phoneNumber: cleanPhone,
       purpose,
     };
