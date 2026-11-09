@@ -163,5 +163,124 @@ router.patch(
   messController.resolveMealRequest
 );
 
+/**
+ * @route   PATCH /api/messes/:messId/settings
+ * @desc    Update Mess Settings (operatingMode: 'student_shared' | 'dhaka_centralized', mealsPerDay: 2 | 3)
+ * @access  Protected
+ */
+router.patch('/:messId/settings', messController.updateMessSettings);
+
+/**
+ * @route   GET /api/messes/:messId/bazar-roster
+ * @desc    Get Bazar Roster (transparent to all members)
+ * @access  Protected
+ */
+router.get('/:messId/bazar-roster', messController.getBazarRoster);
+
+/**
+ * @route   POST /api/messes/:messId/bazar-roster
+ * @desc    Set or replace complete 30-day Bazar Roster schedule
+ * @access  Protected
+ */
+router.post('/:messId/bazar-roster', messController.setBazarRoster);
+
+/**
+ * @route   PUT /api/messes/:messId/bazar-roster/:entryId
+ * @desc    Update a single Bazar Roster entry (assigned border or manager)
+ * @access  Protected
+ */
+router.put('/:messId/bazar-roster/:entryId', messController.updateBazarRosterEntry);
+
+/**
+ * @route   DELETE /api/messes/:messId/bazar-roster/:entryId
+ * @desc    Delete a single Bazar Roster entry
+ * @access  Protected
+ */
+router.delete('/:messId/bazar-roster/:entryId', messController.deleteBazarRosterEntry);
+
+/**
+ * @route   GET /api/messes/:messId/cleaning-roster
+ * @desc    Get Cleaning Roster (transparent to all members)
+ * @access  Protected
+ */
+router.get('/:messId/cleaning-roster', messController.getCleaningRoster);
+
+/**
+ * @route   POST /api/messes/:messId/cleaning-roster
+ * @desc    Set or replace complete Cleaning Roster schedule
+ * @access  Protected
+ */
+router.post('/:messId/cleaning-roster', messController.setCleaningRoster);
+
+/**
+ * @route   PUT /api/messes/:messId/cleaning-roster/:entryId
+ * @desc    Update a single Cleaning Roster entry
+ * @access  Protected
+ */
+router.put('/:messId/cleaning-roster/:entryId', messController.updateCleaningRosterEntry);
+
+/**
+ * @route   DELETE /api/messes/:messId/cleaning-roster/:entryId
+ * @desc    Delete a single Cleaning Roster entry
+ * @access  Protected
+ */
+router.delete('/:messId/cleaning-roster/:entryId', messController.deleteCleaningRosterEntry);
+
+/**
+ * @route   GET /api/messes/:messId/development-fund
+ * @desc    Get Development Fund breakdown (transparent to all members)
+ * @access  Protected
+ */
+router.get('/:messId/development-fund', messController.getDevelopmentFund);
+
+/**
+ * @route   POST /api/messes/:messId/development-fund/config
+ * @desc    Set monthly development fee per member
+ * @access  Protected
+ */
+router.post('/:messId/development-fund/config', messController.setDevelopmentFundConfig);
+
+/**
+ * @route   POST /api/messes/:messId/development-fund/collections
+ * @desc    Record member development fee payment
+ * @access  Protected
+ */
+router.post('/:messId/development-fund/collections', messController.recordDevelopmentFeePayment);
+
+/**
+ * @route   POST /api/messes/:messId/development-fund/expenses
+ * @desc    Record expense paid from development fund
+ * @access  Protected
+ */
+router.post('/:messId/development-fund/expenses', messController.recordDevelopmentExpense);
+
+/**
+ * @route   DELETE /api/messes/:messId/development-fund/expenses/:expenseId
+ * @desc    Delete expense entry
+ * @access  Protected
+ */
+router.delete('/:messId/development-fund/expenses/:expenseId', messController.deleteDevelopmentExpense);
+
+/**
+ * @route   PATCH /api/messes/:messId/members/:memberId/role
+ * @desc    Assign member role (controller, manager, meal_incharge, cleaning_incharge, utility_incharge, border)
+ * @access  Protected
+ */
+router.patch('/:messId/members/:memberId/role', messController.setMemberRole);
+
+/**
+ * @route   POST /api/messes/:messId/members/:memberId/payments
+ * @desc    Record granular payments (seat_rent, utility, meal_deposit, development_fee)
+ * @access  Protected
+ */
+router.post('/:messId/members/:memberId/payments', messController.recordMemberPayment);
+
+/**
+ * @route   POST /api/messes/:messId/send-roster-reminders
+ * @desc    Trigger day-before notifications for tomorrow's bazar and cleaning duties
+ * @access  Protected
+ */
+router.post('/:messId/send-roster-reminders', messController.sendRosterReminders);
+
 module.exports = router;
 

@@ -71,12 +71,83 @@ const messMemberSchema = new mongoose.Schema(
     id: { type: String, required: true },
     name: { type: String, required: true },
     phone: { type: String, required: true },
+    role: {
+      type: String,
+      enum: ['controller', 'manager', 'meal_incharge', 'cleaning_incharge', 'utility_incharge', 'border'],
+      default: 'border',
+    },
     isAdmin: { type: Boolean, default: false },
     isManager: { type: Boolean, default: false },
     totalMealsConsumed: { type: Number, default: 0 },
     totalMoneyDeposited: { type: Number, default: 0 },
+    paidRent: { type: Number, default: 0 },
+    paidUtility: { type: Number, default: 0 },
+    paidDevelopmentFee: { type: Number, default: 0 },
     todayMealSlots: { type: [Boolean], default: [true, true] },
     customDateSlots: { type: mongoose.Schema.Types.Mixed, default: {} },
+  },
+  { _id: false }
+);
+
+const bazarRosterScheduleSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    date: { type: String, required: true }, // e.g. '2026-11-10'
+    dayNumber: { type: Number, default: 1 },
+    memberIds: { type: [String], default: [] },
+    memberNames: { type: [String], default: [] },
+    note: { type: String, default: '' },
+    isCompleted: { type: Boolean, default: false },
+    notificationSent: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const cleaningRosterScheduleSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    date: { type: String, required: true }, // e.g. '2026-11-10'
+    dayNumber: { type: Number, default: 1 },
+    memberIds: { type: [String], default: [] },
+    memberNames: { type: [String], default: [] },
+    cleaningArea: { type: String, default: 'টয়লেট ও মেস' },
+    note: { type: String, default: '' },
+    isCompleted: { type: Boolean, default: false },
+    notificationSent: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
+
+const developmentFundFeeSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    memberId: { type: String, required: true },
+    memberName: { type: String, required: true },
+    amount: { type: Number, required: true },
+    month: { type: String, default: '' },
+    paidAt: { type: Date, default: Date.now },
+    note: { type: String, default: '' },
+  },
+  { _id: false }
+);
+
+const developmentFundExpenseSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    title: { type: String, required: true },
+    amount: { type: Number, required: true },
+    date: { type: Date, default: Date.now },
+    note: { type: String, default: '' },
+    recordedBy: { type: String, default: 'মেস কন্ট্রোলার' },
+  },
+  { _id: false }
+);
+
+const developmentFundSchema = new mongoose.Schema(
+  {
+    monthlyFeePerMember: { type: Number, default: 0 },
+    collections: { type: [developmentFundFeeSchema], default: [] },
+    expenses: { type: [developmentFundExpenseSchema], default: [] },
   },
   { _id: false }
 );
@@ -126,6 +197,10 @@ const mealConfigSchema = new mongoose.Schema(
   {
     messName: { type: String, default: '' },
     mealsPerDay: { type: Number, enum: [2, 3], default: 2 },
+    slotNames: {
+      type: [String],
+      default: ['দুপুর (Lunch)', 'রাত (Dinner)'],
+    },
     managerId: { type: String, default: '' },
     managerName: { type: String, default: '' },
     currentMonth: { type: String, default: 'নভেম্বর ২০২৬' },
@@ -140,6 +215,27 @@ const managedMessSchema = new mongoose.Schema(
       ref: 'Property',
       default: null,
       index: true,
+    },
+    operatingMode: {
+      type: String,
+      enum: ['student_shared', 'dhaka_centralized'],
+      default: 'dhaka_centralized',
+    },
+    bazarRoster: {
+      type: [bazarRosterScheduleSchema],
+      default: [],
+    },
+    cleaningRoster: {
+      type: [cleaningRosterScheduleSchema],
+      default: [],
+    },
+    developmentFund: {
+      type: developmentFundSchema,
+      default: () => ({
+        monthlyFeePerMember: 0,
+        collections: [],
+        expenses: [],
+      }),
     },
     name: {
       type: String,

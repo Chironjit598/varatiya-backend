@@ -20,7 +20,7 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['RECOMMENDATION', 'ALERT_MATCH', 'SYSTEM'],
+      enum: ['RECOMMENDATION', 'ALERT_MATCH', 'SYSTEM', 'MESS_REMINDER', 'MESS_NOTICE'],
       default: 'RECOMMENDATION',
       index: true,
     },

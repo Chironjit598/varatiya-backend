@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const ManagedMess = require('./mess.model');
 const Property = require('../property/property.model');
 const userService = require('../user/user.service');
+const notificationService = require('../notification/notification.service');
+const { isDhakaArea } = require('../../utils/locationHelper');
 const {
   buildMessRooms,
   normalizeRoomsArray,
@@ -107,6 +109,9 @@ class MessService {
           rooms = built.rooms;
         }
         const metrics = calculateSeatMetrics(rooms);
+        const autoOperatingMode = isDhakaArea(prop.area || prop.detailedAddress)
+          ? 'dhaka_centralized'
+          : 'student_shared';
 
         await ManagedMess.create({
           _id: prop._id,
@@ -114,6 +119,7 @@ class MessService {
           name: messName,
           address: prop.detailedAddress,
           area: prop.area,
+          operatingMode: autoOperatingMode,
           managerId: userIdStr,
           managerName: prop.landlordName || user.name || 'মেস ম্যানেজার',
           managerPhone: prop.contactPhone || prop.landlordPhone || user.phoneNumber || '',
@@ -132,6 +138,9 @@ class MessService {
             prop.showUtilityAmountToSeekers !== undefined
               ? Boolean(prop.showUtilityAmountToSeekers)
               : true,
+          bazarRoster: { schedule: [] },
+          cleaningRoster: { schedule: [] },
+          developmentFund: { monthlyFeePerMember: 0, collections: [], expenses: [] },
           members: [
             {
               id: userIdStr,
@@ -139,8 +148,12 @@ class MessService {
               phone: prop.contactPhone || prop.landlordPhone || user.phoneNumber || '',
               isAdmin: true,
               isManager: true,
+              role: 'controller',
               totalMealsConsumed: 0,
               totalMoneyDeposited: 0,
+              paidRent: 0,
+              paidUtility: 0,
+              paidDevelopmentFee: 0,
               todayMealSlots: [true, true],
               customDateSlots: {},
             },
@@ -148,6 +161,7 @@ class MessService {
           mealConfig: {
             messName,
             mealsPerDay: 2,
+            slotNames: ['দুপুর (Lunch)', 'রাত (Dinner)'],
             managerId: userIdStr,
             managerName: prop.landlordName || user.name || 'মেস ম্যানেজার',
             currentMonth: prop.availableMonth || 'নভেম্বর ২০২৬',
@@ -286,7 +300,19 @@ class MessService {
     }
 
     const configuredMealsPerDay = Number(mealsPerDay) === 3 ? 3 : 2;
+    const defaultSlotNames =
+      configuredMealsPerDay === 3
+        ? ['সকাল (Breakfast)', 'দুপুর (Lunch)', 'রাত (Dinner)']
+        : ['দুপুর (Lunch)', 'রাত (Dinner)'];
     const defaultSlots = Array(configuredMealsPerDay).fill(true);
+
+    const autoOperatingMode =
+      payload.operatingMode &&
+      ['student_shared', 'dhaka_centralized'].includes(payload.operatingMode)
+        ? payload.operatingMode
+        : isDhakaArea(resolvedArea || resolvedAddress)
+        ? 'dhaka_centralized'
+        : 'student_shared';
 
     let members = [];
     if (Array.isArray(rawMembers) && rawMembers.length > 0) {
@@ -296,8 +322,12 @@ class MessService {
         phone: String(m.phone || m.phoneNumber || user.phoneNumber),
         isAdmin: Boolean(m.isAdmin),
         isManager: Boolean(m.isManager),
+        role: m.role || (m.isAdmin || m.isManager ? 'manager' : 'border'),
         totalMealsConsumed: Number(m.totalMealsConsumed || 0),
         totalMoneyDeposited: Number(m.totalMoneyDeposited || 0),
+        paidRent: Number(m.paidRent || 0),
+        paidUtility: Number(m.paidUtility || 0),
+        paidDevelopmentFee: Number(m.paidDevelopmentFee || 0),
         todayMealSlots: Array.isArray(m.todayMealSlots)
           ? m.todayMealSlots.map(Boolean)
           : [...defaultSlots],
@@ -316,8 +346,12 @@ class MessService {
         phone: user.phoneNumber,
         isAdmin: true,
         isManager: true,
+        role: 'controller',
         totalMealsConsumed: 0,
         totalMoneyDeposited: 0,
+        paidRent: 0,
+        paidUtility: 0,
+        paidDevelopmentFee: 0,
         todayMealSlots: [...defaultSlots],
         customDateSlots: {},
       });
@@ -337,6 +371,7 @@ class MessService {
       name: resolvedName,
       address: resolvedAddress,
       area: resolvedArea,
+      operatingMode: autoOperatingMode,
       managerId: userIdStr,
       managerName: user.name,
       managerPhone: user.phoneNumber,
@@ -358,12 +393,16 @@ class MessService {
           : true,
       sharedBills: Array.isArray(sharedBills) ? sharedBills : [],
       notices: Array.isArray(notices) ? notices : [],
+      bazarRoster: { schedule: [] },
+      cleaningRoster: { schedule: [] },
+      developmentFund: { monthlyFeePerMember: 0, collections: [], expenses: [] },
       members,
       bazarEntries: [],
       mealRequests: [],
       mealConfig: {
         messName: resolvedName,
         mealsPerDay: configuredMealsPerDay,
+        slotNames: defaultSlotNames,
         managerId: userIdStr,
         managerName: user.name,
         currentMonth: currentMonth || 'নভেম্বর ২০২৬',
@@ -1673,6 +1712,886 @@ class MessService {
       mess: formatManagedMess(mess),
       mealRequest: reqItem,
     };
+  }
+
+  /**
+   * Helper: check if user is Controller, Manager or Admin of the mess
+   */
+  checkMessManagerOrAdmin(mess, user) {
+    const userIdStr = (user._id || user.id).toString();
+    const isOwner =
+      mess.managerId === userIdStr || mess.managerPhone === user.phoneNumber;
+    const memberObj = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+    const hasRole =
+      memberObj &&
+      (memberObj.isAdmin ||
+        memberObj.isManager ||
+        memberObj.role === 'controller' ||
+        memberObj.role === 'manager');
+
+    return {
+      isAuthorized: isOwner || Boolean(hasRole),
+      member: memberObj,
+      isOwner,
+    };
+  }
+
+  /**
+   * Update Mess Settings (Operating Mode & Meals per day 2 or 3)
+   */
+  async updateMessSettings(messId, user, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('শুধুমাত্র মেস কন্ট্রোলার বা ম্যানেজার সেটিংস পরিবর্তন করতে পারেন');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { operatingMode, mealsPerDay, currentMonth } = payload;
+
+    // 1. Operating Mode update
+    if (operatingMode) {
+      if (!['student_shared', 'dhaka_centralized'].includes(operatingMode)) {
+        const error = new Error('ভুল অপারেটিং মোড সিলেক্ট করা হয়েছে');
+        error.statusCode = 400;
+        throw error;
+      }
+      mess.operatingMode = operatingMode;
+    }
+
+    // 2. Meals per day setting (2 or 3)
+    if (mealsPerDay !== undefined) {
+      const parsedMealsPerDay = Number(mealsPerDay);
+      if (parsedMealsPerDay !== 2 && parsedMealsPerDay !== 3) {
+        const error = new Error('মিলের সংখ্যা শুধুমাত্র ২ বার অথবা ৩ বার হতে পারে');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      mess.mealConfig = mess.mealConfig || {};
+      mess.mealConfig.mealsPerDay = parsedMealsPerDay;
+      mess.mealConfig.slotNames =
+        parsedMealsPerDay === 3
+          ? ['সকাল (Breakfast)', 'দুপুর (Lunch)', 'রাত (Dinner)']
+          : ['দুপুর (Lunch)', 'রাত (Dinner)'];
+
+      // Adjust each member's todayMealSlots to match the new count
+      if (Array.isArray(mess.members)) {
+        mess.members.forEach((member) => {
+          let currentSlots = Array.isArray(member.todayMealSlots)
+            ? member.todayMealSlots
+            : [];
+          if (parsedMealsPerDay === 3) {
+            if (currentSlots.length < 3) {
+              member.todayMealSlots = [
+                currentSlots[0] !== undefined ? currentSlots[0] : true,
+                currentSlots[1] !== undefined ? currentSlots[1] : true,
+                true,
+              ];
+            }
+          } else {
+            // 2 meals: Lunch & Dinner
+            member.todayMealSlots = currentSlots.slice(0, 2);
+            if (member.todayMealSlots.length < 2) {
+              member.todayMealSlots = [true, true];
+            }
+          }
+        });
+      }
+    }
+
+    if (currentMonth && typeof currentMonth === 'string') {
+      mess.mealConfig = mess.mealConfig || {};
+      mess.mealConfig.currentMonth = currentMonth.trim();
+    }
+
+    mess.markModified('mealConfig');
+    mess.markModified('members');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Get Bazar Roster (Visible to all borders and managers)
+   */
+  async getBazarRoster(messId, user) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return {
+      operatingMode: mess.operatingMode || 'student_shared',
+      bazarRoster: mess.bazarRoster || { month: '', note: '', schedule: [] },
+    };
+  }
+
+  /**
+   * Set or Replace Entire Bazar Roster (30 days schedule)
+   */
+  async setBazarRoster(messId, user, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const userIdStr = (user._id || user.id).toString();
+    const memberObj = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+    const canManage =
+      mess.managerId === userIdStr ||
+      (memberObj &&
+        ['controller', 'manager', 'meal_incharge'].includes(memberObj.role)) ||
+      (memberObj && (memberObj.isAdmin || memberObj.isManager));
+
+    if (!canManage) {
+      const error = new Error('বাজার রোস্টার তৈরি বা পরিবর্তন করার অনুমতি আপনার নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { month, note, schedule } = payload;
+    mess.bazarRoster = mess.bazarRoster || {};
+    if (month !== undefined) mess.bazarRoster.month = month;
+    if (note !== undefined) mess.bazarRoster.note = note;
+
+    if (Array.isArray(schedule)) {
+      mess.bazarRoster.schedule = schedule.map((s, idx) => ({
+        id: s.id || new mongoose.Types.ObjectId().toString(),
+        date: s.date ? this.toDateKey(s.date) : '',
+        dayNumber: Number(s.dayNumber) || idx + 1,
+        memberIds: Array.isArray(s.memberIds) ? s.memberIds : [],
+        memberNames: Array.isArray(s.memberNames) ? s.memberNames : [],
+        note: s.note || '',
+        isCompleted: Boolean(s.isCompleted),
+        notificationSent: Boolean(s.notificationSent),
+      }));
+    }
+
+    mess.markModified('bazarRoster');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Add or Update a single day's Bazar Roster Entry
+   */
+  async updateBazarRosterEntry(messId, user, entryId, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    mess.bazarRoster = mess.bazarRoster || { schedule: [] };
+    const schedule = mess.bazarRoster.schedule || [];
+    let entry = schedule.find(
+      (s) => s.id === entryId || (s._id && s._id.toString() === entryId)
+    );
+
+    const userIdStr = (user._id || user.id).toString();
+    const memberObj = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+    const isAssigned =
+      entry &&
+      Array.isArray(entry.memberIds) &&
+      (entry.memberIds.includes(userIdStr) ||
+        (memberObj && entry.memberNames?.includes(memberObj.name)));
+
+    const canManage =
+      mess.managerId === userIdStr ||
+      (memberObj &&
+        ['controller', 'manager', 'meal_incharge'].includes(memberObj.role)) ||
+      (memberObj && (memberObj.isAdmin || memberObj.isManager));
+
+    if (!canManage && !isAssigned) {
+      const error = new Error('আপনার এই রোস্টার এন্ট্রি আপডেট করার অনুমতি নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!entry) {
+      entry = {
+        id: entryId || new mongoose.Types.ObjectId().toString(),
+        date: payload.date ? this.toDateKey(payload.date) : '',
+        dayNumber: Number(payload.dayNumber) || schedule.length + 1,
+        memberIds: Array.isArray(payload.memberIds) ? payload.memberIds : [],
+        memberNames: Array.isArray(payload.memberNames) ? payload.memberNames : [],
+        note: payload.note || '',
+        isCompleted: Boolean(payload.isCompleted),
+        notificationSent: false,
+      };
+      schedule.push(entry);
+    } else {
+      if (canManage) {
+        if (payload.date) entry.date = this.toDateKey(payload.date);
+        if (payload.dayNumber !== undefined) entry.dayNumber = Number(payload.dayNumber);
+        if (Array.isArray(payload.memberIds)) entry.memberIds = payload.memberIds;
+        if (Array.isArray(payload.memberNames)) entry.memberNames = payload.memberNames;
+      }
+      if (payload.note !== undefined) entry.note = payload.note;
+      if (payload.isCompleted !== undefined) entry.isCompleted = Boolean(payload.isCompleted);
+    }
+
+    mess.markModified('bazarRoster');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Delete single Bazar Roster Entry
+   */
+  async deleteBazarRosterEntry(messId, user, entryId) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('বাজার রোস্টার এন্ট্রি মুছে ফেলার অনুমতি নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    mess.bazarRoster = mess.bazarRoster || { schedule: [] };
+    mess.bazarRoster.schedule = (mess.bazarRoster.schedule || []).filter(
+      (s) => s.id !== entryId && (!s._id || s._id.toString() !== entryId)
+    );
+
+    mess.markModified('bazarRoster');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Get Cleaning Roster (Transparent to all members)
+   */
+  async getCleaningRoster(messId, user) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return {
+      operatingMode: mess.operatingMode || 'student_shared',
+      cleaningRoster: mess.cleaningRoster || { month: '', note: '', schedule: [] },
+    };
+  }
+
+  /**
+   * Set or Replace Entire Cleaning Roster
+   */
+  async setCleaningRoster(messId, user, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const userIdStr = (user._id || user.id).toString();
+    const memberObj = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+    const canManage =
+      mess.managerId === userIdStr ||
+      (memberObj &&
+        ['controller', 'manager', 'cleaning_incharge'].includes(memberObj.role)) ||
+      (memberObj && (memberObj.isAdmin || memberObj.isManager));
+
+    if (!canManage) {
+      const error = new Error('পরিষ্কার তালিকা তৈরি বা পরিবর্তন করার অনুমতি আপনার নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { month, note, schedule } = payload;
+    mess.cleaningRoster = mess.cleaningRoster || {};
+    if (month !== undefined) mess.cleaningRoster.month = month;
+    if (note !== undefined) mess.cleaningRoster.note = note;
+
+    if (Array.isArray(schedule)) {
+      mess.cleaningRoster.schedule = schedule.map((s, idx) => ({
+        id: s.id || new mongoose.Types.ObjectId().toString(),
+        date: s.date ? this.toDateKey(s.date) : '',
+        dayNumber: Number(s.dayNumber) || idx + 1,
+        memberIds: Array.isArray(s.memberIds) ? s.memberIds : [],
+        memberNames: Array.isArray(s.memberNames) ? s.memberNames : [],
+        cleaningArea: s.cleaningArea || 'টয়লেট ও মেস রুম',
+        note: s.note || '',
+        isCompleted: Boolean(s.isCompleted),
+        notificationSent: Boolean(s.notificationSent),
+      }));
+    }
+
+    mess.markModified('cleaningRoster');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Add or Update single Cleaning Roster Entry
+   */
+  async updateCleaningRosterEntry(messId, user, entryId, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    mess.cleaningRoster = mess.cleaningRoster || { schedule: [] };
+    const schedule = mess.cleaningRoster.schedule || [];
+    let entry = schedule.find(
+      (s) => s.id === entryId || (s._id && s._id.toString() === entryId)
+    );
+
+    const userIdStr = (user._id || user.id).toString();
+    const memberObj = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+    const isAssigned =
+      entry &&
+      Array.isArray(entry.memberIds) &&
+      (entry.memberIds.includes(userIdStr) ||
+        (memberObj && entry.memberNames?.includes(memberObj.name)));
+
+    const canManage =
+      mess.managerId === userIdStr ||
+      (memberObj &&
+        ['controller', 'manager', 'cleaning_incharge'].includes(memberObj.role)) ||
+      (memberObj && (memberObj.isAdmin || memberObj.isManager));
+
+    if (!canManage && !isAssigned) {
+      const error = new Error('আপনার এই পরিষ্কারের শিডিউল আপডেট করার অনুমতি নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (!entry) {
+      entry = {
+        id: entryId || new mongoose.Types.ObjectId().toString(),
+        date: payload.date ? this.toDateKey(payload.date) : '',
+        dayNumber: Number(payload.dayNumber) || schedule.length + 1,
+        memberIds: Array.isArray(payload.memberIds) ? payload.memberIds : [],
+        memberNames: Array.isArray(payload.memberNames) ? payload.memberNames : [],
+        cleaningArea: payload.cleaningArea || 'টয়লেট ও মেস রুম',
+        note: payload.note || '',
+        isCompleted: Boolean(payload.isCompleted),
+        notificationSent: false,
+      };
+      schedule.push(entry);
+    } else {
+      if (canManage) {
+        if (payload.date) entry.date = this.toDateKey(payload.date);
+        if (payload.dayNumber !== undefined) entry.dayNumber = Number(payload.dayNumber);
+        if (Array.isArray(payload.memberIds)) entry.memberIds = payload.memberIds;
+        if (Array.isArray(payload.memberNames)) entry.memberNames = payload.memberNames;
+        if (payload.cleaningArea !== undefined) entry.cleaningArea = payload.cleaningArea;
+      }
+      if (payload.note !== undefined) entry.note = payload.note;
+      if (payload.isCompleted !== undefined) entry.isCompleted = Boolean(payload.isCompleted);
+    }
+
+    mess.markModified('cleaningRoster');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Delete single Cleaning Roster Entry
+   */
+  async deleteCleaningRosterEntry(messId, user, entryId) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('পরিষ্কারের রোস্টার এন্ট্রি মুছে ফেলার অনুমতি নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    mess.cleaningRoster = mess.cleaningRoster || { schedule: [] };
+    mess.cleaningRoster.schedule = (mess.cleaningRoster.schedule || []).filter(
+      (s) => s.id !== entryId && (!s._id || s._id.toString() !== entryId)
+    );
+
+    mess.markModified('cleaningRoster');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Get Development Fund (Transparent for all members)
+   */
+  async getDevelopmentFund(messId, user) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const formatted = formatManagedMess(mess);
+    return {
+      developmentFund: formatted.developmentFund,
+    };
+  }
+
+  /**
+   * Set Development Fund Configuration (e.g. monthly fee per member)
+   */
+  async setDevelopmentFundConfig(messId, user, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('মেস উন্নয়ন ফি নির্ধারণ করার অনুমতি শুধুমাত্র কন্ট্রোলার বা ম্যানেজারের আছে');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { monthlyFeePerMember, note } = payload;
+    mess.developmentFund = mess.developmentFund || { collections: [], expenses: [] };
+    if (monthlyFeePerMember !== undefined) {
+      mess.developmentFund.monthlyFeePerMember = Math.max(0, Number(monthlyFeePerMember) || 0);
+    }
+    if (note !== undefined) {
+      mess.developmentFund.note = String(note).trim();
+    }
+
+    mess.markModified('developmentFund');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Record Development Fee Collection / Payment from a border
+   */
+  async recordDevelopmentFeePayment(messId, user, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('উন্নয়ন ফি জমা নেওয়ার অনুমতি আপনার নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { memberId, amount, paymentDate, paymentMethod, note } = payload;
+    const paymentAmount = Number(amount);
+    if (!paymentAmount || paymentAmount <= 0) {
+      const error = new Error('সঠিক জমার পরিমাণ উল্লেখ করুন');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const targetMember = (mess.members || []).find(
+      (m) => m.id === memberId || (m._id && m._id.toString() === memberId)
+    );
+    if (!targetMember) {
+      const error = new Error('মেম্বারকে পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Add to member's paidDevelopmentFee
+    targetMember.paidDevelopmentFee =
+      (Number(targetMember.paidDevelopmentFee) || 0) + paymentAmount;
+
+    // Record in developmentFund collections
+    mess.developmentFund = mess.developmentFund || { collections: [], expenses: [] };
+    mess.developmentFund.collections.push({
+      id: new mongoose.Types.ObjectId().toString(),
+      memberId: targetMember.id,
+      memberName: targetMember.name,
+      amount: paymentAmount,
+      date: paymentDate ? this.toDateKey(paymentDate) : this.toDateKey(new Date()),
+      paymentMethod: paymentMethod || 'Cash',
+      note: note || '',
+      recordedBy: user.name || 'কন্ট্রোলার',
+    });
+
+    mess.markModified('developmentFund');
+    mess.markModified('members');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Record Development Expense (spent from development fund)
+   */
+  async recordDevelopmentExpense(messId, user, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('উন্নয়ন ফান্ড থেকে খরচ যোগ করার অনুমতি আপনার নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { title, amount, expenseDate, spentBy, voucherUrl, note } = payload;
+    const expenseAmount = Number(amount);
+    if (!title || !expenseAmount || expenseAmount <= 0) {
+      const error = new Error('খরচের বিবরণ ও সঠিক পরিমাণ দেওয়া আবশ্যক');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    mess.developmentFund = mess.developmentFund || { collections: [], expenses: [] };
+    mess.developmentFund.expenses.push({
+      id: new mongoose.Types.ObjectId().toString(),
+      title: String(title).trim(),
+      amount: expenseAmount,
+      date: expenseDate ? this.toDateKey(expenseDate) : this.toDateKey(new Date()),
+      spentBy: spentBy || user.name || 'কন্ট্রোলার',
+      voucherUrl: voucherUrl || '',
+      note: note || '',
+    });
+
+    mess.markModified('developmentFund');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Delete Development Expense
+   */
+  async deleteDevelopmentExpense(messId, user, expenseId) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('খরচ মুছে ফেলার অনুমতি নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    mess.developmentFund = mess.developmentFund || { expenses: [] };
+    mess.developmentFund.expenses = (mess.developmentFund.expenses || []).filter(
+      (e) => e.id !== expenseId && (!e._id || e._id.toString() !== expenseId)
+    );
+
+    mess.markModified('developmentFund');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Assign Role to a Mess Member (Controller assigns roles)
+   */
+  async setMemberRole(messId, user, targetMemberId, role) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const userIdStr = (user._id || user.id).toString();
+    const isOwner =
+      mess.managerId === userIdStr || mess.managerPhone === user.phoneNumber;
+    const currentMember = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+    const isController = isOwner || currentMember?.role === 'controller';
+
+    if (!isController) {
+      const error = new Error('শুধুমাত্র মেস কন্ট্রোলার মেম্বারদের রোল বরাদ্দ করতে পারেন');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const validRoles = [
+      'controller',
+      'manager',
+      'meal_incharge',
+      'cleaning_incharge',
+      'utility_incharge',
+      'border',
+    ];
+    if (!validRoles.includes(role)) {
+      const error = new Error('অকার্যকর রোল (Invalid role)');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const target = (mess.members || []).find(
+      (m) => m.id === targetMemberId || (m._id && m._id.toString() === targetMemberId)
+    );
+    if (!target) {
+      const error = new Error('মেম্বারকে পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    target.role = role;
+    if (role === 'controller') {
+      target.isAdmin = true;
+      target.isManager = true;
+    } else if (role === 'manager') {
+      target.isManager = true;
+    } else {
+      target.isManager = false;
+    }
+
+    mess.markModified('members');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Record Granular Member Payment (Rent, Utility, Meal Deposit, Development Fee)
+   */
+  async recordMemberPayment(messId, user, targetMemberId, payload) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { isAuthorized } = this.checkMessManagerOrAdmin(mess, user);
+    if (!isAuthorized) {
+      const error = new Error('পেমেন্ট হিসাব যুক্ত করার অনুমতি আপনার নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const { paymentType, amount, note, date } = payload;
+    const numAmount = Number(amount);
+    if (!numAmount || numAmount <= 0) {
+      const error = new Error('সঠিক টাকার পরিমাণ দিন');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const target = (mess.members || []).find(
+      (m) => m.id === targetMemberId || (m._id && m._id.toString() === targetMemberId)
+    );
+    if (!target) {
+      const error = new Error('মেম্বার পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const paymentDateKey = date ? this.toDateKey(date) : this.toDateKey(new Date());
+
+    switch (paymentType) {
+      case 'seat_rent':
+        target.paidRent = (Number(target.paidRent) || 0) + numAmount;
+        break;
+      case 'utility':
+        target.paidUtility = (Number(target.paidUtility) || 0) + numAmount;
+        break;
+      case 'meal_deposit':
+        target.totalMoneyDeposited = (Number(target.totalMoneyDeposited) || 0) + numAmount;
+        break;
+      case 'development_fee':
+        target.paidDevelopmentFee = (Number(target.paidDevelopmentFee) || 0) + numAmount;
+        mess.developmentFund = mess.developmentFund || { collections: [], expenses: [] };
+        mess.developmentFund.collections.push({
+          id: new mongoose.Types.ObjectId().toString(),
+          memberId: target.id,
+          memberName: target.name,
+          amount: numAmount,
+          date: paymentDateKey,
+          note: note || 'উন্নয়ন ফি জমা',
+          recordedBy: user.name || 'কন্ট্রোলার',
+        });
+        mess.markModified('developmentFund');
+        break;
+      default: {
+        const error = new Error('সঠিক পেমেন্টের ধরন দিন (seat_rent, utility, meal_deposit, development_fee)');
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    mess.markModified('members');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Send Day-Before Roster Reminder Notifications for Tomorrow (Bazar & Cleaning)
+   */
+  async sendRosterReminders(messId, user, options = {}) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // Default target date is tomorrow (local Bangladesh date + 1 day)
+    let targetDateKey;
+    if (options.targetDate) {
+      targetDateKey = this.toDateKey(options.targetDate);
+    } else {
+      const now = new Date();
+      const bdTomorrow = new Date(now.getTime() + (6 + 24) * 60 * 60 * 1000);
+      targetDateKey = bdTomorrow.toISOString().slice(0, 10);
+    }
+
+    let notificationsSent = 0;
+
+    // 1. Bazar Roster checks
+    if (mess.bazarRoster && Array.isArray(mess.bazarRoster.schedule)) {
+      for (const entry of mess.bazarRoster.schedule) {
+        if (entry.date === targetDateKey && !entry.notificationSent) {
+          if (Array.isArray(entry.memberIds) && entry.memberIds.length > 0) {
+            for (const memberId of entry.memberIds) {
+              try {
+                await notificationService.createAndSendNotification({
+                  userId: memberId,
+                  title: '🛒 কাল আপনার বাজার করার পালা!',
+                  body: `"${mess.name}"-এ কাল (${targetDateKey}) আপনার বাজার করার শিডিউল রয়েছে। মেসের বাজার তালিকা ও খরচ প্রস্তুত রাখুন।`,
+                  type: 'MESS_REMINDER',
+                  data: {
+                    messId: mess._id.toString(),
+                    type: 'BAZAR_REMINDER',
+                    date: targetDateKey,
+                  },
+                });
+                notificationsSent += 1;
+              } catch (e) {
+                console.error(`[Bazar Reminder Notif Error]: ${e.message}`);
+              }
+            }
+            entry.notificationSent = true;
+          }
+        }
+      }
+    }
+
+    // 2. Cleaning Roster checks
+    if (mess.cleaningRoster && Array.isArray(mess.cleaningRoster.schedule)) {
+      for (const entry of mess.cleaningRoster.schedule) {
+        if (entry.date === targetDateKey && !entry.notificationSent) {
+          if (Array.isArray(entry.memberIds) && entry.memberIds.length > 0) {
+            for (const memberId of entry.memberIds) {
+              try {
+                await notificationService.createAndSendNotification({
+                  userId: memberId,
+                  title: '🧹 কাল আপনার পরিষ্কার করার দায়িত্ব!',
+                  body: `"${mess.name}"-এ কাল (${targetDateKey}) আপনার ${entry.cleaningArea || 'টয়লেট/মেস'} পরিষ্কারের শিডিউল রয়েছে।`,
+                  type: 'MESS_REMINDER',
+                  data: {
+                    messId: mess._id.toString(),
+                    type: 'CLEANING_REMINDER',
+                    date: targetDateKey,
+                  },
+                });
+                notificationsSent += 1;
+              } catch (e) {
+                console.error(`[Cleaning Reminder Notif Error]: ${e.message}`);
+              }
+            }
+            entry.notificationSent = true;
+          }
+        }
+      }
+    }
+
+    mess.markModified('bazarRoster');
+    mess.markModified('cleaningRoster');
+    await mess.save();
+
+    return {
+      success: true,
+      targetDate: targetDateKey,
+      notificationsSent,
+      message: `${targetDateKey} তারিখের জন্য ${notificationsSent} টি নোটিফিকেশন পাঠানো হয়েছে।`,
+    };
+  }
+
+  /**
+   * Dispatch reminders for all active messes (can be called periodically by worker)
+   */
+  async dispatchDailyRosterRemindersForAllMesses() {
+    try {
+      const now = new Date();
+      const bdTomorrow = new Date(now.getTime() + (6 + 24) * 60 * 60 * 1000);
+      const targetDateKey = bdTomorrow.toISOString().slice(0, 10);
+
+      const candidateMesses = await ManagedMess.find({
+        $or: [
+          { 'bazarRoster.schedule.date': targetDateKey, 'bazarRoster.schedule.notificationSent': { $ne: true } },
+          { 'cleaningRoster.schedule.date': targetDateKey, 'cleaningRoster.schedule.notificationSent': { $ne: true } },
+        ],
+      });
+
+      let totalSent = 0;
+      for (const mess of candidateMesses) {
+        const res = await this.sendRosterReminders(mess._id, null, { targetDate: targetDateKey });
+        totalSent += res.notificationsSent || 0;
+      }
+      return totalSent;
+    } catch (err) {
+      console.error('[Roster Reminder Worker Error]:', err.message);
+      return 0;
+    }
   }
 }
 

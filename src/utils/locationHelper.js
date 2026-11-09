@@ -9129,6 +9129,30 @@ function buildSubAreaRegexPattern(text) {
   return escapeRegex(clean);
 }
 
+const DHAKA_AREA_NAMES = [
+  'dhaka', 'ঢাকা', 'mirpur', 'মিরপুর', 'dhanmondi', 'ধানমন্ডি', 'uttara', 'উত্তরা',
+  'mohammadpur', 'মোহাম্মদপুর', 'adabor', 'আদাবর', 'gulshan', 'গুলশান', 'banani', 'বনানী',
+  'baridhara', 'বারিধারা', 'bashundhara', 'বসুন্ধরা', 'bashundhara r/a', 'বসুন্ধরা আ/এ',
+  'badda', 'বাড্ডা', 'aftabnagar', 'আফতাবনগর', 'rampura', 'রামপুরা', 'banasree', 'বনশ্রী',
+  'khilgaon', 'খিলগাঁও', 'malibagh', 'মালিবাগ', 'moghbazar', 'মগবাজার', 'shantinagar', 'শান্তিনগর',
+  'farmgate', 'ফার্মগেট', 'tejgaon', 'তেজগাঁও', 'shahbagh', 'শাহবাগ', 'motijheel', 'মতিঝিল',
+  'old dhaka', 'পুরান ঢাকা', 'hazaribagh', 'হাজারীবাগ', 'mohakhali', 'মহাখালী', 'khilkhet', 'খিলক্ষেত',
+  'shyamoli', 'শ্যামলী', 'agargaon', 'আগারগাঁও', 'cantonment', 'ক্যান্টনমেন্ট', 'bhatara', 'ভাটারা',
+  'jatrabari', 'যাত্রাবাড়ী', 'mugda', 'মুগদা', 'jurain', 'জুরাইন', 'keraniganj', 'কেরানীগঞ্জ',
+  'savar', 'সাভার', 'ashulia', 'আশুলিয়া', 'nikunja', 'নিকুঞ্জ', 'wari', 'ওয়ারী', 'lalbagh', 'লালবাগ'
+];
+
+/**
+ * Check if a given area string belongs to Greater Dhaka
+ * @param {string} areaText
+ * @returns {boolean}
+ */
+function isDhakaArea(areaText) {
+  if (!areaText || typeof areaText !== 'string') return false;
+  const clean = areaText.trim().toLowerCase();
+  return DHAKA_AREA_NAMES.some((item) => clean === item || clean.includes(item) || item.includes(clean));
+}
+
 module.exports = {
   BD_AREAS,
   getHaversineDistanceKm,
@@ -9136,4 +9160,5 @@ module.exports = {
   getCoordinatesForArea,
   buildAreaRegexPattern,
   buildSubAreaRegexPattern,
+  isDhakaArea,
 };

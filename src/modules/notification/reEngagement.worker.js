@@ -43,6 +43,16 @@ class ReEngagementWorker {
       }
 
       const now = new Date();
+      const bdHour = (now.getUTCHours() + 6) % 24;
+      // Trigger Mess Roster day-before reminders in the evening (between 18:00 and 22:00 BD time)
+      if (bdHour >= 18 && bdHour <= 22) {
+        try {
+          const messService = require('../mess/mess.service');
+          await messService.dispatchDailyRosterRemindersForAllMesses();
+        } catch (rosterErr) {
+          console.error('[ReEngagementWorker] Roster reminder error:', rosterErr.message);
+        }
+      }
       // Candidates who were active between 30 minutes and 3 hours ago
       const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
       const threeHoursAgo = new Date(now.getTime() - 3 * 60 * 60 * 1000);

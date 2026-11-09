@@ -1,6 +1,16 @@
 /**
  * Helper utilities for Mess Room Generation, Seat Preservation, and Financial Calculations
  */
+const { isDhakaArea } = require('./locationHelper');
+
+const ROLE_LABELS = {
+  controller: 'মেস কন্ট্রোলার (মালিক)',
+  manager: 'মেস ম্যানেজার',
+  meal_incharge: 'মিলের হিসাব ইনচার্জ',
+  cleaning_incharge: 'পরিচ্ছন্নতা ইনচার্জ',
+  utility_incharge: 'ইউটিলিটি ইনচার্জ',
+  border: 'সাধারণ বর্ডার',
+};
 
 const ROOM_TYPE_CONFIGS = [
   {
@@ -346,7 +356,48 @@ const formatManagedMess = (messDoc) => {
     }
   }
 
-  const mealsPerDay = mess.mealConfig?.mealsPerDay || 2;
+  // Operating mode auto-detection and label
+  const operatingMode = mess.operatingMode || (isDhakaArea(mess.area) ? 'dhaka_centralized' : 'student_shared');
+  mess.operatingMode = operatingMode;
+  mess.operatingModeLabel =
+    operatingMode === 'dhaka_centralized'
+      ? 'ঢাকার মেস (সেন্ট্রালাইজড মোড)'
+      : 'ঢাকার বাইরের মেস (শেয়ার্ড / স্টুডেন্ট মোড)';
+
+  const mealsPerDay = Number(mess.mealConfig?.mealsPerDay) === 3 ? 3 : 2;
+  const slotNames =
+    mealsPerDay === 3
+      ? ['সকাল (Breakfast)', 'দুপুর (Lunch)', 'রাত (Dinner)']
+      : ['দুপুর (Lunch)', 'রাত (Dinner)'];
+
+  mess.mealConfig = {
+    messName: mess.mealConfig?.messName || mess.name || '',
+    mealsPerDay,
+    slotNames,
+    managerId: mess.mealConfig?.managerId || mess.managerId || '',
+    managerName: mess.mealConfig?.managerName || mess.managerName || '',
+    currentMonth: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+  };
+
+  // Development Fund Calculation
+  const devFund = mess.developmentFund || {};
+  const devCollections = Array.isArray(devFund.collections) ? devFund.collections : [];
+  const devExpenses = Array.isArray(devFund.expenses) ? devFund.expenses : [];
+  const totalDevCollected = devCollections.reduce((sum, c) => sum + Number(c.amount || 0), 0);
+  const totalDevExpended = devExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+  const currentDevBalance = totalDevCollected - totalDevExpended;
+
+  mess.developmentFund = {
+    monthlyFeePerMember: Number(devFund.monthlyFeePerMember || 0),
+    totalCollected: totalDevCollected,
+    totalExpended: totalDevExpended,
+    currentBalance: currentDevBalance,
+    collections: devCollections,
+    expenses: devExpenses,
+  };
+
+  mess.bazarRoster = Array.isArray(mess.bazarRoster) ? mess.bazarRoster : [];
+  mess.cleaningRoster = Array.isArray(mess.cleaningRoster) ? mess.cleaningRoster : [];
 
   mess.members = members.map((m) => {
     const memberObj = typeof m.toJSON === 'function' ? m.toJSON() : { ...m };
@@ -378,14 +429,39 @@ const formatManagedMess = (messDoc) => {
     const memberTotalPayable = memberSeatRent + memberMealCost + perBorderUtilityShare;
     const memberDue = memberTotalPayable - Number(memberObj.totalMoneyDeposited || 0);
 
+    const memberRole = memberObj.role || (memberObj.isAdmin ? 'controller' : (memberObj.isManager ? 'manager' : 'border'));
+    const memberRoleLabel = ROLE_LABELS[memberRole] || 'সাধারণ বর্ডার';
+
+    const memberPaidRent = Number(memberObj.paidRent || 0);
+    const memberPaidUtility = Number(memberObj.paidUtility || 0);
+    const memberPaidDevFee = Number(memberObj.paidDevelopmentFee || 0);
+    const memberMealDeposit = Number(memberObj.totalMoneyDeposited || 0);
+
+    const mealCost = memberMealCost;
+    const mealBalance = memberMealDeposit - mealCost;
+    const mealDue = Math.max(0, mealCost - memberMealDeposit);
+
+    const seatRentDue = Math.max(0, memberSeatRent - memberPaidRent);
+    const utilityDue = Math.max(0, perBorderUtilityShare - memberPaidUtility);
+    const devFeeDue = Math.max(0, Number(devFund.monthlyFeePerMember || 0) - memberPaidDevFee);
+
+    const fullTotalPayable = memberSeatRent + mealCost + perBorderUtilityShare + Number(devFund.monthlyFeePerMember || 0);
+    const fullTotalPaid = memberMealDeposit + memberPaidRent + memberPaidUtility + memberPaidDevFee;
+    const fullTotalDue = seatRentDue + mealDue + utilityDue + devFeeDue;
+
     return {
       id: (memberObj.id || memberObj._id || '').toString(),
       name: memberObj.name || '',
       phone: memberObj.phone || '',
+      role: memberRole,
+      roleLabel: memberRoleLabel,
       isAdmin: Boolean(memberObj.isAdmin),
       isManager: Boolean(memberObj.isManager),
       totalMealsConsumed: Number(memberObj.totalMealsConsumed || 0),
-      totalMoneyDeposited: Number(memberObj.totalMoneyDeposited || 0),
+      totalMoneyDeposited: memberMealDeposit,
+      paidRent: memberPaidRent,
+      paidUtility: memberPaidUtility,
+      paidDevelopmentFee: memberPaidDevFee,
       todayMealSlots,
       customDateSlots,
       seatRent: memberSeatRent,
@@ -393,6 +469,37 @@ const formatManagedMess = (messDoc) => {
       utilityShare: perBorderUtilityShare,
       totalPayable: memberTotalPayable,
       due: memberDue,
+      accounts: {
+        meal: {
+          mealsConsumed: Number(memberObj.totalMealsConsumed || 0),
+          mealRate,
+          totalMealCost: mealCost,
+          totalMealDeposit: memberMealDeposit,
+          balance: mealBalance,
+          due: mealDue,
+        },
+        seatRent: {
+          seatRent: memberSeatRent,
+          paidRent: memberPaidRent,
+          due: seatRentDue,
+        },
+        utility: {
+          utilityShare: perBorderUtilityShare,
+          paidUtility: memberPaidUtility,
+          due: utilityDue,
+        },
+        developmentFund: {
+          monthlyFee: Number(devFund.monthlyFeePerMember || 0),
+          paidFee: memberPaidDevFee,
+          due: devFeeDue,
+        },
+        totalSummary: {
+          totalPayable: fullTotalPayable,
+          totalPaid: fullTotalPaid,
+          totalDue: fullTotalDue,
+          overallBalance: fullTotalPaid - fullTotalPayable,
+        },
+      },
       assignedRoomId: assigned ? assigned.room.id : null,
       assignedRoomName: assigned ? assigned.room.roomName : null,
       assignedSeatId: assigned ? assigned.seat.id : null,

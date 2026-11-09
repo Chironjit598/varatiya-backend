@@ -480,6 +480,395 @@ class MessController {
       next(error);
     }
   }
+
+  /**
+   * PATCH /api/messes/:messId/settings
+   * Update Mess Settings (Operating Mode & Meals per day 2 or 3)
+   */
+  async updateMessSettings(req, res, next) {
+    try {
+      const mess = await messService.updateMessSettings(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'মেস সেটিংস সফলভাবে আপডেট করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/bazar-roster
+   */
+  async getBazarRoster(req, res, next) {
+    try {
+      const result = await messService.getBazarRoster(req.params.messId, req.user);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বাজার রোস্টার পাওয়া গেছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/bazar-roster
+   */
+  async setBazarRoster(req, res, next) {
+    try {
+      const mess = await messService.setBazarRoster(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বাজার রোস্টার সফলভাবে সেভ করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/messes/:messId/bazar-roster/:entryId
+   */
+  async updateBazarRosterEntry(req, res, next) {
+    try {
+      const mess = await messService.updateBazarRosterEntry(
+        req.params.messId,
+        req.user,
+        req.params.entryId,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বাজার রোস্টার এন্ট্রি আপডেট করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/messes/:messId/bazar-roster/:entryId
+   */
+  async deleteBazarRosterEntry(req, res, next) {
+    try {
+      const mess = await messService.deleteBazarRosterEntry(
+        req.params.messId,
+        req.user,
+        req.params.entryId
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বাজার রোস্টার এন্ট্রি মুছে ফেলা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/cleaning-roster
+   */
+  async getCleaningRoster(req, res, next) {
+    try {
+      const result = await messService.getCleaningRoster(req.params.messId, req.user);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'টয়লেট ও মেস পরিষ্কারের রোস্টার পাওয়া গেছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/cleaning-roster
+   */
+  async setCleaningRoster(req, res, next) {
+    try {
+      const mess = await messService.setCleaningRoster(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'পরিষ্কারের তালিকা সফলভাবে সেভ করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /api/messes/:messId/cleaning-roster/:entryId
+   */
+  async updateCleaningRosterEntry(req, res, next) {
+    try {
+      const mess = await messService.updateCleaningRosterEntry(
+        req.params.messId,
+        req.user,
+        req.params.entryId,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'পরিষ্কারের শিডিউল আপডেট করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/messes/:messId/cleaning-roster/:entryId
+   */
+  async deleteCleaningRosterEntry(req, res, next) {
+    try {
+      const mess = await messService.deleteCleaningRosterEntry(
+        req.params.messId,
+        req.user,
+        req.params.entryId
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'পরিষ্কারের শিডিউল মুছে ফেলা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/development-fund
+   */
+  async getDevelopmentFund(req, res, next) {
+    try {
+      const result = await messService.getDevelopmentFund(req.params.messId, req.user);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'মেস উন্নয়ন ফান্ডের হিসাব পাওয়া গেছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/development-fund/config
+   */
+  async setDevelopmentFundConfig(req, res, next) {
+    try {
+      const mess = await messService.setDevelopmentFundConfig(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'মেস উন্নয়ন ফি সফলভাবে নির্ধারণ করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/development-fund/collections
+   */
+  async recordDevelopmentFeePayment(req, res, next) {
+    try {
+      const mess = await messService.recordDevelopmentFeePayment(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'মেস উন্নয়ন ফি সফলভাবে জমা নেওয়া হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/development-fund/expenses
+   */
+  async recordDevelopmentExpense(req, res, next) {
+    try {
+      const mess = await messService.recordDevelopmentExpense(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'উন্নয়ন ফান্ড থেকে খরচ সফলভাবে রেকর্ড করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * DELETE /api/messes/:messId/development-fund/expenses/:expenseId
+   */
+  async deleteDevelopmentExpense(req, res, next) {
+    try {
+      const mess = await messService.deleteDevelopmentExpense(
+        req.params.messId,
+        req.user,
+        req.params.expenseId
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'উন্নয়ন ফান্ডের খরচ সফলভাবে মুছে ফেলা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PATCH /api/messes/:messId/members/:memberId/role
+   */
+  async setMemberRole(req, res, next) {
+    try {
+      const mess = await messService.setMemberRole(
+        req.params.messId,
+        req.user,
+        req.params.memberId,
+        req.body.role
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'মেম্বারের দায়িত্ব সফলভাবে পরিবর্তন করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/members/:memberId/payments
+   */
+  async recordMemberPayment(req, res, next) {
+    try {
+      const mess = await messService.recordMemberPayment(
+        req.params.messId,
+        req.user,
+        req.params.memberId,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'টাকা জমার হিসাব সফলভাবে রেকর্ড করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/send-roster-reminders
+   */
+  async sendRosterReminders(req, res, next) {
+    try {
+      const result = await messService.sendRosterReminders(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new MessController();
