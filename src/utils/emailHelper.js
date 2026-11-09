@@ -84,6 +84,36 @@ const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
   console.log(`🔑 Purpose: ${purpose} | Code: [ ${otp} ] (Valid: ${env.OTP_EXPIRY_MINUTES} mins)`);
   console.log(`======================================================\n`);
 
+  // 1. Prioritize Resend HTTPS API (Runs over Port 443, never blocked by Render cloud firewall)
+  if (env.RESEND_API_KEY) {
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: env.RESEND_FROM || 'onboarding@resend.dev',
+          to: email,
+          subject,
+          html,
+          text: `${headingText}\n${subText}\n\nআপনার ওটিপি কোড: ${otp}\n(মেয়াদ: ৫ মিনিট)`,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok && data.id) {
+        console.log(`📧 [Resend Success] MessageId: ${data.id} sent to ${email}`);
+        return { success: true, messageId: data.id, provider: 'resend' };
+      }
+      console.warn(`⚠️ [Resend API Notice]: ${data.message || JSON.stringify(data)}`);
+    } catch (resendErr) {
+      console.error(`❌ [Resend Error]: ${resendErr.message}`);
+    }
+  }
+
+  // 2. Fallback to SMTP Transporter
   if (transporter) {
     try {
       const info = await transporter.sendMail({
@@ -94,7 +124,7 @@ const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
         text: `${headingText}\n${subText}\n\nআপনার ওটিপি কোড: ${otp}\n(মেয়াদ: ৫ মিনিট)`,
       });
       console.log(`📧 [Email Sent Success] MessageId: ${info.messageId}`);
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info.messageId, provider: 'smtp' };
     } catch (err) {
       console.error(`❌ [Email Send Failure] Error sending email to ${email}:`, err.message);
       return { success: false, error: err.message };
