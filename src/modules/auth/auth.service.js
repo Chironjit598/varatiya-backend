@@ -243,10 +243,6 @@ class AuthService {
       phoneNumber: cleanPhone,
     };
   }
-      phoneNumber: cleanPhone,
-      purpose,
-    };
-  }
 
   /**
    * Resend OTP
