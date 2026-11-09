@@ -51,6 +51,26 @@ router.post(
 );
 
 /**
+ * Diagnostic test route to check live email delivery from Render
+ */
+router.get('/test-email', async (req, res) => {
+  const { sendEmailOtp } = require('../../utils/emailHelper');
+  const targetEmail = req.query.to || 'devchir8@gmail.com';
+  try {
+    const startTime = Date.now();
+    const result = await sendEmailOtp({
+      email: targetEmail,
+      otp: '9999',
+      purpose: 'REGISTRATION',
+    });
+    const durationMs = Date.now() - startTime;
+    return res.json({ success: true, durationMs, result });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
  * @route   POST /api/auth/login
  * @desc    Authenticate user with phone number and password
  * @access  Public (Rate limited)
