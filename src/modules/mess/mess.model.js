@@ -73,8 +73,11 @@ const messMemberSchema = new mongoose.Schema(
     phone: { type: String, required: true },
     role: {
       type: String,
-      enum: ['controller', 'manager', 'meal_incharge', 'cleaning_incharge', 'utility_incharge', 'border'],
       default: 'border',
+    },
+    roles: {
+      type: [String],
+      default: ['border'],
     },
     isAdmin: { type: Boolean, default: false },
     isManager: { type: Boolean, default: false },

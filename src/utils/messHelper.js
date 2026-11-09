@@ -4,11 +4,14 @@
 const { isDhakaArea } = require('./locationHelper');
 
 const ROLE_LABELS = {
-  controller: 'মেস কন্ট্রোলার (মালিক)',
+  controller: 'মেস কন্ট্রোলার',
   manager: 'মেস ম্যানেজার',
-  meal_incharge: 'মিলের হিসাব ইনচার্জ',
-  cleaning_incharge: 'পরিচ্ছন্নতা ইনচার্জ',
-  utility_incharge: 'ইউটিলিটি ইনচার্জ',
+  meal_bazar_manager: 'মিল ও বাজার ম্যানেজার',
+  cleaning_manager: 'টয়লেট ও মেস পরিষ্কার ম্যানেজার',
+  utility_manager: 'ইউটিলিটি ও বিল ম্যানেজার',
+  meal_incharge: 'মিল ও বাজার ম্যানেজার',
+  cleaning_incharge: 'টয়লেট ও মেস পরিষ্কার ম্যানেজার',
+  utility_incharge: 'ইউটিলিটি ও বিল ম্যানেজার',
   border: 'সাধারণ বর্ডার',
 };
 
@@ -429,8 +432,15 @@ const formatManagedMess = (messDoc) => {
     const memberTotalPayable = memberSeatRent + memberMealCost + perBorderUtilityShare;
     const memberDue = memberTotalPayable - Number(memberObj.totalMoneyDeposited || 0);
 
-    const memberRole = memberObj.role || (memberObj.isAdmin ? 'controller' : (memberObj.isManager ? 'manager' : 'border'));
-    const memberRoleLabel = ROLE_LABELS[memberRole] || 'সাধারণ বর্ডার';
+    const memberRoles = Array.isArray(memberObj.roles) && memberObj.roles.length > 0
+      ? memberObj.roles
+      : [memberObj.role || (memberObj.isAdmin ? 'controller' : (memberObj.isManager ? 'manager' : 'border'))];
+
+    const memberRoleLabels = memberRoles.map((r) => ROLE_LABELS[r] || r);
+    const memberRole = memberRoles[0] || 'border';
+    const memberRoleLabel = memberRoleLabels.join(', ');
+    const isMemberController = memberRoles.includes('controller') || Boolean(memberObj.isAdmin) || memberRole === 'controller';
+    const isMemberManager = Boolean(memberObj.isManager) || isMemberController || memberRoles.some((r) => ['manager', 'meal_bazar_manager', 'cleaning_manager', 'utility_manager', 'meal_incharge', 'cleaning_incharge', 'utility_incharge'].includes(r));
 
     const memberPaidRent = Number(memberObj.paidRent || 0);
     const memberPaidUtility = Number(memberObj.paidUtility || 0);
@@ -454,9 +464,12 @@ const formatManagedMess = (messDoc) => {
       name: memberObj.name || '',
       phone: memberObj.phone || '',
       role: memberRole,
+      roles: memberRoles,
       roleLabel: memberRoleLabel,
-      isAdmin: Boolean(memberObj.isAdmin),
-      isManager: Boolean(memberObj.isManager),
+      roleLabels: memberRoleLabels,
+      isAdmin: isMemberController,
+      isController: isMemberController,
+      isManager: isMemberManager,
       totalMealsConsumed: Number(memberObj.totalMealsConsumed || 0),
       totalMoneyDeposited: memberMealDeposit,
       paidRent: memberPaidRent,

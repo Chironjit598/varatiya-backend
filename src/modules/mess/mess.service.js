@@ -1360,6 +1360,8 @@ class MessService {
       id: registeredUser.id,
       name: registeredUser.name,
       phone: registeredUser.phoneNumber,
+      role: isAdmin ? 'controller' : 'border',
+      roles: isAdmin ? ['controller'] : ['border'],
       isAdmin: Boolean(isAdmin),
       isManager: false,
       totalMealsConsumed: Number(totalMealsConsumed || 0),
@@ -1427,15 +1429,67 @@ class MessService {
         }
       }
 
-      // 2. If user is manager of this mess
-      const isManager =
-        mess.managerId === userIdStr || mess.managerPhone === userPhone;
+      // Check if user is a controller in this mess
+      const userMember = (mess.members || []).find(
+        (m) => m.id === userIdStr || m.phone === userPhone
+      );
+      const userRoles = Array.isArray(userMember?.roles) && userMember.roles.length > 0
+        ? userMember.roles
+        : (userMember?.role ? [userMember.role] : []);
+      const isController =
+        mess.managerId === userIdStr ||
+        mess.managerPhone === userPhone ||
+        Boolean(userMember?.isAdmin) ||
+        userRoles.includes('controller') ||
+        userMember?.role === 'controller';
 
-      if (isManager) {
-        // Look for another admin or member to hand over manager duties
-        const nextCandidate = (mess.members || []).find(
-          (m) => m.id !== userIdStr && m.phone !== userPhone
-        );
+      const otherMembers = (mess.members || []).filter(
+        (m) => m.id !== userIdStr && m.phone !== userPhone
+      );
+
+      // Rule: If leaving user is a controller and other members exist in the mess,
+      // there MUST be at least one other controller appointed before this controller can leave!
+      if (isController && otherMembers.length > 0) {
+        const otherControllers = otherMembers.filter((m) => {
+          const mRoles = Array.isArray(m.roles) && m.roles.length > 0 ? m.roles : (m.role ? [m.role] : []);
+          return Boolean(m.isAdmin) || mRoles.includes('controller') || m.role === 'controller';
+        });
+
+        if (otherControllers.length === 0) {
+          const error = new Error(
+            'মেসে অন্তত একজন মেস কন্ট্রোলার থাকা আবশ্যক। মেস ছাড়ার পূর্বে অনুগ্রহ করে অন্য একজন সদস্যকে কন্ট্রোলার হিসেবে দায়িত্ব প্রদান করুন।'
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        // If other controller exists and this user is primary mess manager, transfer primary manager to the other controller
+        if (mess.managerId === userIdStr || mess.managerPhone === userPhone) {
+          const newPrimaryController = otherControllers[0];
+          mess.managerId = newPrimaryController.id;
+          mess.managerName = newPrimaryController.name;
+          mess.managerPhone = newPrimaryController.phone;
+          newPrimaryController.isAdmin = true;
+          newPrimaryController.isManager = true;
+          if (!Array.isArray(newPrimaryController.roles)) {
+            newPrimaryController.roles = [];
+          }
+          if (!newPrimaryController.roles.includes('controller')) {
+            newPrimaryController.roles.push('controller');
+          }
+          newPrimaryController.role = 'controller';
+          if (mess.mealConfig) {
+            mess.mealConfig.managerId = newPrimaryController.id;
+            mess.mealConfig.managerName = newPrimaryController.name;
+          }
+          isModified = true;
+        }
+      } else if (mess.managerId === userIdStr || mess.managerPhone === userPhone) {
+        // If not a controller or sole member in mess, hand over or release manager
+        const nextCandidate = otherMembers.find((m) => {
+          const mRoles = Array.isArray(m.roles) && m.roles.length > 0 ? m.roles : (m.role ? [m.role] : []);
+          return Boolean(m.isAdmin) || mRoles.includes('controller') || m.role === 'controller';
+        }) || otherMembers[0];
 
         if (nextCandidate) {
           mess.managerId = nextCandidate.id;
@@ -1558,7 +1612,21 @@ class MessService {
     }
 
     for (const member of mess.members) {
-      member.isManager = member.id === targetMember.id;
+      if (member.id === targetMember.id) {
+        member.isManager = true;
+      }
+    }
+
+    if (payload.roles || payload.role) {
+      let rawRoles = [];
+      if (Array.isArray(payload.roles)) rawRoles = payload.roles;
+      else if (typeof payload.role === 'string') rawRoles = [payload.role];
+      else if (typeof payload.roles === 'string') rawRoles = [payload.roles];
+      if (rawRoles.length > 0) {
+        targetMember.roles = rawRoles;
+        targetMember.role = rawRoles[0];
+        if (rawRoles.includes('controller')) targetMember.isAdmin = true;
+      }
     }
 
     mess.managerId = targetMember.id;
@@ -1721,24 +1789,95 @@ class MessService {
   /**
    * Helper: check if user is Controller, Manager or Admin of the mess
    */
-  checkMessManagerOrAdmin(mess, user) {
+  checkMessManagerOrAdmin(mess, user, requiredRole = null) {
     const userIdStr = (user._id || user.id).toString();
     const isOwner =
       mess.managerId === userIdStr || mess.managerPhone === user.phoneNumber;
     const memberObj = (mess.members || []).find(
       (m) => m.id === userIdStr || m.phone === user.phoneNumber
     );
-    const hasRole =
-      memberObj &&
-      (memberObj.isAdmin ||
-        memberObj.isManager ||
-        memberObj.role === 'controller' ||
-        memberObj.role === 'manager');
+    const memberRoles = Array.isArray(memberObj?.roles) && memberObj.roles.length > 0
+      ? memberObj.roles
+      : (memberObj?.role ? [memberObj.role] : []);
+
+    const isController =
+      isOwner ||
+      Boolean(memberObj?.isAdmin) ||
+      memberRoles.includes('controller') ||
+      memberObj?.role === 'controller';
+
+    if (isController) {
+      return {
+        isAuthorized: true,
+        isController: true,
+        isManager: true,
+        member: memberObj,
+        isOwner,
+        roles: memberRoles,
+      };
+    }
+
+    if (requiredRole === 'meal_bazar') {
+      const authorized =
+        memberRoles.includes('meal_bazar_manager') ||
+        memberRoles.includes('meal_incharge') ||
+        memberRoles.includes('manager') ||
+        Boolean(memberObj?.isManager);
+      return {
+        isAuthorized: authorized,
+        isController: false,
+        isManager: authorized,
+        member: memberObj,
+        isOwner,
+        roles: memberRoles,
+      };
+    }
+
+    if (requiredRole === 'cleaning') {
+      const authorized =
+        memberRoles.includes('cleaning_manager') ||
+        memberRoles.includes('cleaning_incharge') ||
+        memberRoles.includes('manager') ||
+        Boolean(memberObj?.isManager);
+      return {
+        isAuthorized: authorized,
+        isController: false,
+        isManager: authorized,
+        member: memberObj,
+        isOwner,
+        roles: memberRoles,
+      };
+    }
+
+    if (requiredRole === 'utility') {
+      const authorized =
+        memberRoles.includes('utility_manager') ||
+        memberRoles.includes('utility_incharge') ||
+        memberRoles.includes('manager') ||
+        Boolean(memberObj?.isManager);
+      return {
+        isAuthorized: authorized,
+        isController: false,
+        isManager: authorized,
+        member: memberObj,
+        isOwner,
+        roles: memberRoles,
+      };
+    }
+
+    const hasAnyManagerRole =
+      Boolean(memberObj?.isManager) ||
+      memberRoles.some((r) =>
+        ['manager', 'meal_bazar_manager', 'meal_incharge', 'cleaning_manager', 'cleaning_incharge', 'utility_manager', 'utility_incharge'].includes(r)
+      );
 
     return {
-      isAuthorized: isOwner || Boolean(hasRole),
+      isAuthorized: Boolean(hasAnyManagerRole),
+      isController: false,
+      isManager: Boolean(hasAnyManagerRole),
       member: memberObj,
       isOwner,
+      roles: memberRoles,
     };
   }
 
@@ -2340,9 +2479,15 @@ class MessService {
   }
 
   /**
-   * Assign Role to a Mess Member (Controller assigns roles)
+   * Assign Role(s) to a Mess Member (Controller assigns roles)
+   * Supports assigning multiple responsibilities:
+   * - controller (মেস কন্ট্রোলার)
+   * - meal_bazar_manager (মিল ও বাজার ম্যানেজার)
+   * - cleaning_manager (টয়লেট ও মেস পরিষ্কার ম্যানেজার)
+   * - utility_manager (ইউটিলিটি ও বিল ম্যানেজার)
+   * - border (সাধারণ বর্ডার)
    */
-  async setMemberRole(messId, user, targetMemberId, role) {
+  async setMemberRole(messId, user, targetMemberId, rolePayload) {
     const mess = await ManagedMess.findById(messId);
     if (!mess) {
       const error = new Error('মেসটি পাওয়া যায়নি');
@@ -2356,25 +2501,18 @@ class MessService {
     const currentMember = (mess.members || []).find(
       (m) => m.id === userIdStr || m.phone === user.phoneNumber
     );
-    const isController = isOwner || currentMember?.role === 'controller';
+    const currentUserRoles = Array.isArray(currentMember?.roles) && currentMember.roles.length > 0
+      ? currentMember.roles
+      : (currentMember?.role ? [currentMember.role] : []);
+    const isController =
+      isOwner ||
+      Boolean(currentMember?.isAdmin) ||
+      currentUserRoles.includes('controller') ||
+      currentMember?.role === 'controller';
 
     if (!isController) {
       const error = new Error('শুধুমাত্র মেস কন্ট্রোলার মেম্বারদের রোল বরাদ্দ করতে পারেন');
       error.statusCode = 403;
-      throw error;
-    }
-
-    const validRoles = [
-      'controller',
-      'manager',
-      'meal_incharge',
-      'cleaning_incharge',
-      'utility_incharge',
-      'border',
-    ];
-    if (!validRoles.includes(role)) {
-      const error = new Error('অকার্যকর রোল (Invalid role)');
-      error.statusCode = 400;
       throw error;
     }
 
@@ -2387,15 +2525,62 @@ class MessService {
       throw error;
     }
 
-    target.role = role;
-    if (role === 'controller') {
-      target.isAdmin = true;
-      target.isManager = true;
-    } else if (role === 'manager') {
-      target.isManager = true;
-    } else {
-      target.isManager = false;
+    // Extract roles from rolePayload (array, object, or string)
+    let rawRoles = [];
+    if (Array.isArray(rolePayload)) {
+      rawRoles = rolePayload;
+    } else if (typeof rolePayload === 'string') {
+      rawRoles = [rolePayload];
+    } else if (rolePayload && typeof rolePayload === 'object') {
+      if (Array.isArray(rolePayload.roles)) {
+        rawRoles = rolePayload.roles;
+      } else if (typeof rolePayload.role === 'string') {
+        rawRoles = [rolePayload.role];
+      }
     }
+
+    // Role mapping and alias resolution
+    const roleMapping = {
+      controller: 'controller',
+      manager: 'manager',
+      meal_bazar_manager: 'meal_bazar_manager',
+      meal_incharge: 'meal_bazar_manager',
+      cleaning_manager: 'cleaning_manager',
+      cleaning_incharge: 'cleaning_manager',
+      utility_manager: 'utility_manager',
+      utility_incharge: 'utility_manager',
+      border: 'border',
+    };
+
+    const validKeys = Object.keys(roleMapping);
+    let normalizedRoles = [
+      ...new Set(
+        rawRoles
+          .map((r) => String(r).trim().toLowerCase())
+          .filter((r) => validKeys.includes(r))
+          .map((r) => roleMapping[r])
+      ),
+    ];
+
+    if (normalizedRoles.length === 0) {
+      normalizedRoles = ['border'];
+    }
+
+    // If manager or controller roles are selected along with 'border', eliminate 'border'
+    const finalRoles =
+      normalizedRoles.length > 1
+        ? normalizedRoles.filter((r) => r !== 'border')
+        : normalizedRoles;
+
+    const hasController = finalRoles.includes('controller');
+    const hasAnyManager = finalRoles.some((r) =>
+      ['controller', 'manager', 'meal_bazar_manager', 'cleaning_manager', 'utility_manager'].includes(r)
+    );
+
+    target.roles = finalRoles;
+    target.role = finalRoles[0] || 'border';
+    target.isAdmin = hasController;
+    target.isManager = hasAnyManager;
 
     mess.markModified('members');
     await mess.save();

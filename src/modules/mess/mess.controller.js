@@ -808,7 +808,7 @@ class MessController {
         req.params.messId,
         req.user,
         req.params.memberId,
-        req.body.role
+        req.body
       );
 
       return ApiResponse.success(res, {
