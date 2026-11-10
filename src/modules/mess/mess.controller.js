@@ -871,6 +871,94 @@ class MessController {
       next(error);
     }
   }
+
+  /**
+   * POST /api/messes/:messId/deposits
+   * POST /api/mess/:messId/deposits
+   */
+  async recordDeposit(req, res, next) {
+    try {
+      const result = await messService.recordDeposit(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 201,
+        message: 'টাকা জমা সফলভাবে গ্রহণ করা হয়েছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/deposits
+   * GET /api/mess/:messId/deposits
+   */
+  async getDeposits(req, res, next) {
+    try {
+      const deposits = await messService.getDeposits(
+        req.params.messId,
+        req.user,
+        req.query
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'ডিপোজিটের তালিকা পাওয়া গেছে',
+        data: {
+          deposits,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/deposits/summary
+   * GET /api/mess/:messId/deposits/summary
+   */
+  async getDepositsSummary(req, res, next) {
+    try {
+      const summary = await messService.getDepositsSummary(
+        req.params.messId,
+        req.user
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'ডিপোজিট সামারি পাওয়া গেছে',
+        data: summary,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/today-meals
+   * GET /api/mess/:messId/today-meals
+   */
+  async getTodayMeals(req, res, next) {
+    try {
+      const todayMeals = await messService.getTodayMeals(
+        req.params.messId,
+        req.user
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'আজকের মিলের তথ্য পাওয়া গেছে',
+        data: todayMeals,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new MessController();

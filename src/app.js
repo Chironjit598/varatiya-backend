@@ -91,6 +91,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/properties', propertyRoutes);
 app.use('/api/messes', messRoutes);
+app.use('/api/mess', messRoutes);
 app.use('/api/family-expenses', familyExpenseRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);

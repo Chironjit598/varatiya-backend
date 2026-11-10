@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const ManagedMess = require('./mess.model');
+const PaymentRecord = require('./paymentRecord.model');
 const Property = require('../property/property.model');
 const userService = require('../user/user.service');
 const notificationService = require('../notification/notification.service');
@@ -1135,7 +1136,7 @@ class MessService {
         ? Number(totalAmount)
         : items.reduce((sum, i) => sum + Number(i.price || 0), 0);
 
-    // Find buyer member to credit totalMoneyDeposited
+    // Find buyer member for recording buyer details
     const targetBuyerId = buyerMemberId || user._id.toString();
     const buyerMember = (mess.members || []).find(
       (m) =>
@@ -1144,10 +1145,9 @@ class MessService {
         (buyerMemberName && m.name === buyerMemberName)
     );
 
-    if (buyerMember) {
-      buyerMember.totalMoneyDeposited =
-        Number(buyerMember.totalMoneyDeposited || 0) + computedTotal;
-    }
+    // CRITICAL: Decoupled from personal deposit!
+    // Bazar expense is paid from mess cash fund, NOT personal deposit credit.
+    // Member deposit increases ONLY when explicitly submitted via deposit API.
 
     const newEntry = {
       id: `bazar_${Date.now()}_${Math.round(Math.random() * 1000)}`,
@@ -1162,7 +1162,6 @@ class MessService {
 
     mess.bazarEntries.unshift(newEntry);
     mess.markModified('bazarEntries');
-    mess.markModified('members');
     await mess.save();
 
     return {
@@ -1222,26 +1221,9 @@ class MessService {
       throw error;
     }
 
-    // Deduct totalAmount from buyer member's totalMoneyDeposited
-    const amountToDeduct = Number(targetBazar.totalAmount || 0);
-    const buyerMember = (mess.members || []).find(
-      (m) =>
-        m.id === targetBazar.buyerMemberId ||
-        m.phone === targetBazar.buyerMemberId ||
-        m.name === targetBazar.buyerMemberName
-    );
-
-    if (buyerMember && amountToDeduct > 0) {
-      buyerMember.totalMoneyDeposited = Math.max(
-        0,
-        Number(buyerMember.totalMoneyDeposited || 0) - amountToDeduct
-      );
-    }
-
-    // Remove entry
+    // Remove entry (personal deposit is not modified because bazar is decoupled from deposit)
     mess.bazarEntries.splice(bazarIndex, 1);
     mess.markModified('bazarEntries');
-    mess.markModified('members');
     await mess.save();
 
     return formatManagedMess(mess);
@@ -2823,10 +2805,348 @@ class MessService {
       }
     }
 
+    let paymentCategory = null;
+    if (paymentType === 'meal_deposit' || paymentType === 'meal') paymentCategory = 'meal';
+    else if (paymentType === 'seat_rent' || paymentType === 'rent') paymentCategory = 'rent';
+    else if (paymentType === 'utility') paymentCategory = 'utility';
+
+    if (paymentCategory) {
+      try {
+        await PaymentRecord.create({
+          id: new mongoose.Types.ObjectId().toString(),
+          messId: mess._id.toString(),
+          memberId: target.id,
+          memberName: target.name,
+          amount: numAmount,
+          category: paymentCategory,
+          paymentMethod: 'cash',
+          collectorId: (user._id || user.id).toString(),
+          collectorName: user.name || 'ম্যানেজার',
+          note: note || '',
+          createdAt: date ? new Date(date) : new Date(),
+        });
+      } catch (err) {
+        // Non-blocking fallback
+      }
+    }
+
     mess.markModified('members');
     await mess.save();
 
     return formatManagedMess(mess);
+  }
+
+  /**
+   * Record Deposit with Role-based Category Permissions
+   * POST /api/mess/:messId/deposits
+   */
+  async recordDeposit(messId, user, payload = {}) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const userIdStr = (user._id || user.id).toString();
+    const isOwner = mess.managerId === userIdStr || mess.managerPhone === user.phoneNumber;
+    const currentMember = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+
+    const userRoles = Array.isArray(currentMember?.roles) && currentMember.roles.length > 0
+      ? currentMember.roles
+      : (currentMember?.role ? [currentMember.role] : []);
+
+    const isControllerOrFullManager =
+      isOwner ||
+      Boolean(currentMember?.isAdmin) ||
+      userRoles.includes('controller') ||
+      currentMember?.role === 'controller' ||
+      userRoles.includes('manager') ||
+      currentMember?.role === 'manager';
+
+    const hasMealRole =
+      userRoles.includes('meal_bazar_manager') ||
+      userRoles.includes('meal_incharge');
+
+    const hasUtilityRole =
+      userRoles.includes('utility_manager') ||
+      userRoles.includes('utility_incharge');
+
+    // 1. Regular Border Check:
+    if (!isControllerOrFullManager && !hasMealRole && !hasUtilityRole) {
+      const error = new Error('বর্ডারদের টাকা জমা উত্তোলনের অনুমতি নেই');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // 2. Normalize and Validate Category:
+    const rawCategory = String(payload.category || payload.paymentType || '').trim().toLowerCase();
+    let category = '';
+    if (rawCategory === 'meal' || rawCategory === 'meal_deposit') category = 'meal';
+    else if (rawCategory === 'rent' || rawCategory === 'seat_rent') category = 'rent';
+    else if (rawCategory === 'utility' || rawCategory === 'utility_bill') category = 'utility';
+    else {
+      const error = new Error('সঠিক ক্যাটাগরি দিন (meal, rent, utility)');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // 3. Role-based Category Enforcement:
+    if (!isControllerOrFullManager) {
+      if (category === 'meal' && !hasMealRole) {
+        const error = new Error('মিলের টাকা জমা নেওয়ার অনুমতি আপনার নেই');
+        error.statusCode = 403;
+        throw error;
+      }
+      if (category === 'utility' && !hasUtilityRole) {
+        const error = new Error('ইউটিলিটি বিল জমা নেওয়ার অনুমতি আপনার নেই');
+        error.statusCode = 403;
+        throw error;
+      }
+      if (category === 'rent') {
+        const error = new Error('শুধুমাত্র মেস কন্ট্রোলার বা মেস ম্যানেজার সিট ভাড়ার টাকা জমা নিতে পারেন');
+        error.statusCode = 403;
+        throw error;
+      }
+    }
+
+    // 4. Validate Target Member:
+    const targetMemberId = payload.memberId || payload.targetMemberId;
+    if (!targetMemberId) {
+      const error = new Error('মেম্বার আইডি প্রদান করা আবশ্যক');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const targetMember = (mess.members || []).find(
+      (m) =>
+        m.id === targetMemberId ||
+        (m._id && m._id.toString() === targetMemberId) ||
+        m.phone === targetMemberId
+    );
+    if (!targetMember) {
+      const error = new Error('মেম্বারকে পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    // 5. Validate Amount:
+    const numAmount = Math.round(Number(payload.amount));
+    if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+      const error = new Error('টাকার পরিমাণ অবশ্যই একটি ধনাত্মক পূর্ণসংখ্যা হতে হবে');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // 6. Defaults for optional fields:
+    const paymentMethod = payload.paymentMethod ? String(payload.paymentMethod).trim().toLowerCase() : 'cash';
+    const createdAt = payload.createdAt || payload.date ? new Date(payload.createdAt || payload.date) : new Date();
+
+    // 7. Save PaymentRecord:
+    const paymentRecord = new PaymentRecord({
+      id: new mongoose.Types.ObjectId().toString(),
+      messId: mess._id.toString(),
+      memberId: targetMember.id,
+      memberName: targetMember.name,
+      amount: numAmount,
+      category,
+      paymentMethod,
+      collectorId: userIdStr,
+      collectorName: user.name || (currentMember ? currentMember.name : 'ম্যানেজার'),
+      note: payload.note ? String(payload.note).trim() : '',
+      createdAt,
+    });
+    await paymentRecord.save();
+
+    // 8. Update member balances in mess ledger:
+    if (category === 'meal') {
+      targetMember.totalMoneyDeposited = Number(targetMember.totalMoneyDeposited || 0) + numAmount;
+    } else if (category === 'rent') {
+      targetMember.paidRent = Number(targetMember.paidRent || 0) + numAmount;
+    } else if (category === 'utility') {
+      targetMember.paidUtility = Number(targetMember.paidUtility || 0) + numAmount;
+    }
+
+    mess.markModified('members');
+    await mess.save();
+
+    return {
+      deposit: paymentRecord,
+      paymentRecord,
+      mess: formatManagedMess(mess),
+    };
+  }
+
+  /**
+   * Get List of Deposits / Payment Records
+   * GET /api/mess/:messId/deposits
+   */
+  async getDeposits(messId, user, query = {}) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const filter = { messId: mess._id.toString() };
+    if (query.memberId) filter.memberId = query.memberId;
+    if (query.category) filter.category = query.category;
+
+    const deposits = await PaymentRecord.find(filter).sort({ createdAt: -1 });
+    return deposits;
+  }
+
+  /**
+   * Get Deposit Summary (totalMealDeposited, totalBazarCost, cashInHand, memberMealDeposits)
+   * GET /api/mess/:messId/deposits/summary
+   */
+  async getDepositsSummary(messId, user) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const messIdStr = mess._id.toString();
+    const mealRecords = await PaymentRecord.find({
+      messId: messIdStr,
+      category: 'meal',
+    });
+
+    const memberMealDeposits = (mess.members || []).map((m) => {
+      const mId = m.id || (m._id ? m._id.toString() : '');
+      const mRecords = mealRecords.filter(
+        (r) => r.memberId === mId || r.memberId === m.phone
+      );
+      const recordTotal = mRecords.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const totalMealDeposit = recordTotal > 0 ? recordTotal : Number(m.totalMoneyDeposited || 0);
+
+      return {
+        memberId: mId,
+        memberName: m.name || '',
+        totalMealDeposit,
+      };
+    });
+
+    const totalMealDeposited = memberMealDeposits.reduce(
+      (sum, m) => sum + Number(m.totalMealDeposit || 0),
+      0
+    );
+
+    const totalBazarCost = (mess.bazarEntries || []).reduce(
+      (sum, b) => sum + Number(b.totalAmount || 0),
+      0
+    );
+
+    const cashInHand = totalMealDeposited - totalBazarCost;
+
+    return {
+      totalMealDeposited,
+      totalBazarCost,
+      cashInHand,
+      memberMealDeposits,
+    };
+  }
+
+  /**
+   * Get Today's Active Meals per slot and active member lists
+   * GET /api/mess/:messId/today-meals
+   */
+  async getTodayMeals(messId, user) {
+    const mess = await ManagedMess.findById(messId);
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const todayKey = this.toDateKey(new Date());
+    const mealsPerDay = mess.mealConfig?.mealsPerDay || 2;
+    const defaultSlotNames =
+      mealsPerDay === 3
+        ? ['সকাল (Breakfast)', 'দুপুর (Lunch)', 'রাত (Dinner)']
+        : ['দুপুর (Lunch)', 'রাত (Dinner)'];
+
+    const slotNames =
+      Array.isArray(mess.mealConfig?.slotNames) && mess.mealConfig.slotNames.length === mealsPerDay
+        ? mess.mealConfig.slotNames
+        : defaultSlotNames;
+
+    const slotKeys =
+      mealsPerDay === 3
+        ? ['breakfast', 'lunch', 'dinner']
+        : ['lunch', 'dinner'];
+
+    const slots = slotNames.map((name, idx) => ({
+      slotIndex: idx,
+      slotKey: slotKeys[idx] || `slot_${idx}`,
+      slotName: name,
+      activeCount: 0,
+      members: [],
+    }));
+
+    const summary = {};
+    slotKeys.forEach((key, idx) => {
+      summary[key] = {
+        slotIndex: idx,
+        slotName: slotNames[idx],
+        count: 0,
+        members: [],
+      };
+    });
+
+    let totalActiveMealsToday = 0;
+
+    for (const member of mess.members || []) {
+      const memberId = member.id || (member._id ? member._id.toString() : '');
+      const memberEntry = {
+        id: memberId,
+        name: member.name || '',
+        phone: member.phone || '',
+      };
+
+      let memberTodaySlots = [];
+      if (member.customDateSlots && member.customDateSlots[todayKey]) {
+        memberTodaySlots = Array.isArray(member.customDateSlots[todayKey])
+          ? member.customDateSlots[todayKey].map(Boolean)
+          : [];
+      } else if (member.customDateSlots instanceof Map && member.customDateSlots.has(todayKey)) {
+        const val = member.customDateSlots.get(todayKey);
+        memberTodaySlots = Array.isArray(val) ? val.map(Boolean) : [];
+      } else if (Array.isArray(member.todayMealSlots)) {
+        memberTodaySlots = member.todayMealSlots.map(Boolean);
+      } else {
+        memberTodaySlots = Array(mealsPerDay).fill(true);
+      }
+
+      for (let i = 0; i < mealsPerDay; i++) {
+        const isActive = memberTodaySlots[i] !== undefined ? Boolean(memberTodaySlots[i]) : true;
+        if (isActive) {
+          totalActiveMealsToday += 1;
+          if (slots[i]) {
+            slots[i].activeCount += 1;
+            slots[i].members.push(memberEntry);
+          }
+          const sKey = slotKeys[i];
+          if (sKey && summary[sKey]) {
+            summary[sKey].count += 1;
+            summary[sKey].members.push(memberEntry);
+          }
+        }
+      }
+    }
+
+    return {
+      date: todayKey,
+      mealsPerDay,
+      totalActiveMealsToday,
+      slots,
+      summary,
+    };
   }
 
   /**

@@ -282,5 +282,33 @@ router.post('/:messId/members/:memberId/payments', messController.recordMemberPa
  */
 router.post('/:messId/send-roster-reminders', messController.sendRosterReminders);
 
+/**
+ * @route   POST /api/messes/:messId/deposits
+ * @desc    Record member deposit (category: meal, rent, utility) with role-based checks
+ * @access  Protected
+ */
+router.post('/:messId/deposits', messController.recordDeposit);
+
+/**
+ * @route   GET /api/messes/:messId/deposits
+ * @desc    Get deposit records for the mess
+ * @access  Protected
+ */
+router.get('/:messId/deposits', messController.getDeposits);
+
+/**
+ * @route   GET /api/messes/:messId/deposits/summary
+ * @desc    Get deposit financial summary (totalMealDeposited, totalBazarCost, cashInHand, memberMealDeposits)
+ * @access  Protected
+ */
+router.get('/:messId/deposits/summary', messController.getDepositsSummary);
+
+/**
+ * @route   GET /api/messes/:messId/today-meals
+ * @desc    Get today's active meal count per slot and list of active member IDs and names
+ * @access  Protected
+ */
+router.get('/:messId/today-meals', messController.getTodayMeals);
+
 module.exports = router;
 
