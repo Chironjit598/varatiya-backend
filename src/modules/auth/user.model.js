@@ -32,10 +32,15 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['Seeker', 'Landlord', 'Both'],
+        values: ['Seeker', 'Landlord', 'Both', 'bachelor_admin'],
         message: '{VALUE} is not a valid role',
       },
       default: 'Seeker',
+    },
+    affiliatedMessId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ManagedMess',
+      default: null,
     },
     isPhoneVerified: {
       type: Boolean,

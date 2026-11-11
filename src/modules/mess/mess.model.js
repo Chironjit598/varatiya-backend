@@ -273,14 +273,18 @@ const managedMessSchema = new mongoose.Schema(
     },
     address: {
       type: String,
-      required: [true, 'মেসের ঠিকানা আবশ্যক'],
+      default: '',
       trim: true,
     },
     area: {
       type: String,
-      required: [true, 'এলাকা আবশ্যক'],
+      default: '',
       trim: true,
       index: true,
+    },
+    isPrivateGroup: {
+      type: Boolean,
+      default: false,
     },
     managerId: {
       type: String,

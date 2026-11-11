@@ -32,11 +32,7 @@ router.post('/', messController.createMess);
  * @desc    Create a Private Bachelor Flat (No public To-Let listing)
  * @access  Protected
  */
-router.post('/bachelor-flat', (req, res, next) => {
-  req.body = req.body || {};
-  req.body.operatingMode = 'bachelor_flat';
-  return messController.createMess(req, res, next);
-});
+router.post('/bachelor-flat', messController.createBachelorFlat);
 
 /**
  * @route   POST /api/messes/leave

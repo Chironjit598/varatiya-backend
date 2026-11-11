@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const ManagedMess = require('./mess.model');
 const PaymentRecord = require('./paymentRecord.model');
 const Property = require('../property/property.model');
+const User = require('../auth/user.model');
 const userService = require('../user/user.service');
 const notificationService = require('../notification/notification.service');
 const { isDhakaArea } = require('../../utils/locationHelper');
@@ -235,7 +236,100 @@ class MessService {
   }
 
   /**
+   * Create a Bachelor Flat (Dedicated endpoint)
+   * POST /api/messes/bachelor-flat
+   */
+  async createBachelorFlat(user, payload) {
+    const { name, rooms: rawRooms, defaultSeatRent, address, area } = payload;
+    const userIdStr = (user._id || user.id).toString();
+
+    if (!name || !String(name).trim()) {
+      const error = new Error('বাসার নাম আবশ্যক');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const defaultRent = Number(defaultSeatRent) || 4000;
+    const rooms = normalizeRoomsArray(Array.isArray(rawRooms) ? rawRooms : []).map((room) => ({
+      ...room,
+      seats: (room.seats || []).map((seat) => ({
+        ...seat,
+        rentAmount:
+          seat.rentAmount !== null && seat.rentAmount !== undefined
+            ? Number(seat.rentAmount)
+            : defaultRent,
+      })),
+    }));
+
+    const metrics = calculateSeatMetrics(rooms);
+    const roomCounts = extractRoomCountsFromRooms(rooms);
+
+    const members = [
+      {
+        id: userIdStr,
+        name: user.name,
+        phone: user.phoneNumber || '',
+        isAdmin: true,
+        isManager: true,
+        role: 'controller',
+        roles: ['controller'],
+        todayMealSlots: [true, true],
+        totalMealsConsumed: 0,
+        totalMoneyDeposited: 0,
+        paidRent: 0,
+        paidUtility: 0,
+        paidDevelopmentFee: 0,
+        customDateSlots: {},
+      },
+    ];
+
+    const flatData = {
+      propertyId: null,
+      operatingMode: 'bachelor_flat',
+      isPrivateGroup: true,
+      name: String(name).trim(),
+      address: String(address || '').trim(),
+      area: String(area || '').trim(),
+      managerId: userIdStr,
+      managerName: user.name,
+      managerPhone: user.phoneNumber || '',
+      defaultSeatRent: defaultRent,
+      ...roomCounts,
+      totalSeats: metrics.totalSeats,
+      vacantSeats: metrics.vacantSeats,
+      rooms,
+      members,
+      sharedBills: [],
+      notices: [],
+      bazarEntries: [],
+      mealConfig: {
+        messName: String(name).trim(),
+        mealsPerDay: 2,
+        slotNames: ['দুপুর (Lunch)', 'রাত (Dinner)'],
+        managerId: userIdStr,
+        managerName: user.name,
+        currentMonth: 'নভেম্বর ২০২৬',
+      },
+    };
+
+    const flat = await ManagedMess.create(flatData);
+
+    // Update user profile with affiliatedMessId & role
+    try {
+      await User.findByIdAndUpdate(user._id, {
+        affiliatedMessId: flat._id,
+        role: 'bachelor_admin',
+      });
+    } catch (uErr) {
+      console.warn('Could not update user role/affiliatedMessId:', uErr.message);
+    }
+
+    return formatManagedMess(flat);
+  }
+
+  /**
    * Create a new ManagedMess (or Bachelor Mess Group)
+   * POST /api/messes
    */
   async createMess(user, payload) {
     const {

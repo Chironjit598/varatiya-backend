@@ -63,6 +63,23 @@ class MessController {
   }
 
   /**
+   * POST /api/messes/bachelor-flat
+   */
+  async createBachelorFlat(req, res, next) {
+    try {
+      const flat = await messService.createBachelorFlat(req.user, req.body);
+
+      return ApiResponse.success(res, {
+        statusCode: 201,
+        message: 'ব্যাচেলর বাসা সফলভাবে তৈরি হয়েছে',
+        data: flat,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * PUT /api/messes/:messId
    */
   async updateMess(req, res, next) {

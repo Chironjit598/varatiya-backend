@@ -575,13 +575,28 @@ const formatManagedMess = (messDoc) => {
   mess.totalSharedBills = totalSharedBills;
   mess.perBorderUtilityShare = perBorderUtilityShare;
 
-  const totalExpectedRent = members.reduce((sum, m) => {
-    const assigned = seatByPhone[m.phone];
-    const rent = assigned && assigned.seat.rentAmount !== null && assigned.seat.rentAmount !== undefined
-      ? Number(assigned.seat.rentAmount)
-      : Number(mess.defaultSeatRent || 0);
-    return sum + rent;
-  }, 0);
+  // Calculate total expected rent from individual seat rents across all rooms
+  let totalExpectedRent = 0;
+  if (Array.isArray(mess.rooms) && mess.rooms.length > 0) {
+    mess.rooms.forEach((room) => {
+      if (Array.isArray(room.seats)) {
+        room.seats.forEach((seat) => {
+          totalExpectedRent += (Number(seat.rentAmount) || Number(mess.defaultSeatRent) || 0);
+        });
+      }
+    });
+  }
+
+  // Fallback to member seats if room seats calculation is 0
+  if (totalExpectedRent === 0) {
+    totalExpectedRent = members.reduce((sum, m) => {
+      const assigned = seatByPhone[m.phone];
+      const rent = assigned && assigned.seat.rentAmount !== null && assigned.seat.rentAmount !== undefined
+        ? Number(assigned.seat.rentAmount)
+        : Number(mess.defaultSeatRent || 0);
+      return sum + rent;
+    }, 0);
+  }
   const totalCollectedRent = members.reduce((sum, m) => sum + Number(m.paidRent || 0), 0);
   const totalCollectedUtility = members.reduce((sum, m) => sum + Number(m.paidUtility || 0), 0);
   const totalMemberDeposits = members.reduce((sum, m) => sum + Number(m.totalMoneyDeposited || 0), 0);
