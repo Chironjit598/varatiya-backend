@@ -1096,6 +1096,199 @@ class MessService {
   }
 
   /**
+   * Set meal slots for a date range (e.g. next 5 days) or multiple specific dates
+   * PATCH /api/messes/:messId/members/:memberId/meal-slots/range
+   * Body: { startDate, endDate, status, slots, dates }
+   */
+  async setMemberDateSlotsRange(messId, memberId, payload) {
+    const mess = await ManagedMess.findOne({
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(messId)
+          ? [{ _id: messId }, { propertyId: messId }]
+          : []),
+      ],
+    });
+
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const member = (mess.members || []).find(
+      (m) => m.id === memberId || m.phone === memberId
+    );
+    if (!member) {
+      const error = new Error('সদস্য পাওয়া যায়নি (Member not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const mealsPerDay = mess.mealConfig?.mealsPerDay || 2;
+    const todayKey = this.toDateKey();
+
+    // Determine target dates
+    let targetDates = [];
+    if (Array.isArray(payload.dates) && payload.dates.length > 0) {
+      targetDates = payload.dates.map((d) => this.toDateKey(d));
+    } else if (payload.startDate && payload.endDate) {
+      const start = new Date(payload.startDate);
+      const end = new Date(payload.endDate);
+      const cur = new Date(start);
+      while (cur <= end) {
+        targetDates.push(this.toDateKey(cur));
+        cur.setDate(cur.getDate() + 1);
+      }
+    } else if (payload.date) {
+      targetDates.push(this.toDateKey(payload.date));
+    } else {
+      const error = new Error('সঠিক তারিখ অথবা তারিখের সীমা (startDate ও endDate) প্রদান করুন');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let customSlotsMap = {};
+    if (member.customDateSlots instanceof Map) {
+      customSlotsMap = Object.fromEntries(member.customDateSlots);
+    } else if (member.customDateSlots && typeof member.customDateSlots === 'object') {
+      customSlotsMap = { ...member.customDateSlots };
+    }
+
+    let currentTodaySlots = Array.isArray(member.todayMealSlots)
+      ? [...member.todayMealSlots]
+      : Array(mealsPerDay).fill(true);
+    while (currentTodaySlots.length < mealsPerDay) {
+      currentTodaySlots.push(true);
+    }
+
+    for (const dateKey of targetDates) {
+      let dateSlots = Array.isArray(customSlotsMap[dateKey])
+        ? [...customSlotsMap[dateKey]]
+        : [...currentTodaySlots];
+      while (dateSlots.length < mealsPerDay) {
+        dateSlots.push(true);
+      }
+
+      for (let sIdx = 0; sIdx < mealsPerDay; sIdx++) {
+        let newSlotVal;
+        if (payload.status !== undefined) {
+          newSlotVal = Boolean(payload.status);
+        } else if (Array.isArray(payload.slots) && payload.slots[sIdx] !== undefined) {
+          newSlotVal = Boolean(payload.slots[sIdx]);
+        } else {
+          newSlotVal = false; // default off when setting vacation/off range
+        }
+
+        const oldSlotVal = Boolean(dateSlots[sIdx]);
+        if (newSlotVal !== oldSlotVal) {
+          dateSlots[sIdx] = newSlotVal;
+          if (newSlotVal) {
+            member.totalMealsConsumed = Number(member.totalMealsConsumed || 0) + 1;
+          } else {
+            member.totalMealsConsumed = Math.max(0, Number(member.totalMealsConsumed || 0) - 1);
+          }
+        }
+      }
+
+      customSlotsMap[dateKey] = dateSlots;
+      if (dateKey === todayKey) {
+        currentTodaySlots = [...dateSlots];
+        member.todayMealSlots = currentTodaySlots;
+      }
+    }
+
+    member.customDateSlots = customSlotsMap;
+    mess.markModified('members');
+    await mess.save();
+
+    return formatManagedMess(mess);
+  }
+
+  /**
+   * Get 30-day (or whole month) meal sheet for a member with daily slots
+   * GET /api/messes/:messId/members/:memberId/meal-sheet?month=2026-11
+   */
+  async getMemberMealSheet(messId, memberId, query = {}) {
+    const mess = await ManagedMess.findOne({
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(messId)
+          ? [{ _id: messId }, { propertyId: messId }]
+          : []),
+      ],
+    });
+
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const member = (mess.members || []).find(
+      (m) => m.id === memberId || m.phone === memberId
+    );
+    if (!member) {
+      const error = new Error('সদস্য পাওয়া যায়নি (Member not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const mealsPerDay = mess.mealConfig?.mealsPerDay || 2;
+    const slotNames = mess.mealConfig?.slotNames || (mealsPerDay === 3 ? ['সকাল', 'দুপুর', 'রাত'] : ['দুপুর', 'রাত']);
+    const todayKey = this.toDateKey();
+
+    // Parse month or default to current month YYYY-MM
+    let year = new Date().getFullYear();
+    let month = new Date().getMonth() + 1; // 1-12
+    if (query.month && /^\d{4}-\d{2}$/.test(query.month)) {
+      const parts = query.month.split('-');
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    let customSlotsMap = {};
+    if (member.customDateSlots instanceof Map) {
+      customSlotsMap = Object.fromEntries(member.customDateSlots);
+    } else if (member.customDateSlots && typeof member.customDateSlots === 'object') {
+      customSlotsMap = { ...member.customDateSlots };
+    }
+
+    const defaultSlots = Array(mealsPerDay).fill(true);
+    const sheet = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayStr = String(day).padStart(2, '0');
+      const monthStr = String(month).padStart(2, '0');
+      const dateKey = `${year}-${monthStr}-${dayStr}`;
+
+      const slots = Array.isArray(customSlotsMap[dateKey])
+        ? customSlotsMap[dateKey]
+        : (dateKey === todayKey && Array.isArray(member.todayMealSlots) ? member.todayMealSlots : defaultSlots);
+
+      sheet.push({
+        dayNumber: day,
+        date: dateKey,
+        isToday: dateKey === todayKey,
+        isPast: dateKey < todayKey,
+        isFuture: dateKey > todayKey,
+        slots: slots.slice(0, mealsPerDay),
+        totalMealsDay: slots.filter(Boolean).length,
+      });
+    }
+
+    return {
+      messId: mess._id.toString(),
+      memberId: member.id,
+      memberName: member.name,
+      month: `${year}-${String(month).padStart(2, '0')}`,
+      daysInMonth,
+      mealsPerDay,
+      slotNames,
+      totalMealsConsumed: member.totalMealsConsumed,
+      sheet,
+    };
+  }
+
+  /**
    * Add Itemized Bazar Entry & Increment Buyer's Deposit
    * POST /api/messes/:messId/bazar
    */

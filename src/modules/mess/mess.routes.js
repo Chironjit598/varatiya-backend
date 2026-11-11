@@ -116,6 +116,20 @@ router.patch('/:messId/meals-per-day', messController.updateMealsPerDay);
 router.patch('/:messId/members/:memberId/toggle-slot', messController.toggleMemberSlot);
 
 /**
+ * @route   PATCH /api/messes/:messId/members/:memberId/meal-slots/range
+ * @desc    Turn ON/OFF meal slots for a date range (e.g. next 5 days) or multiple dates
+ * @access  Protected
+ */
+router.patch('/:messId/members/:memberId/meal-slots/range', messController.setMemberDateSlotsRange);
+
+/**
+ * @route   GET /api/messes/:messId/members/:memberId/meal-sheet
+ * @desc    Get complete 30-day (monthly) meal sheet with slot statuses for calendar view
+ * @access  Protected
+ */
+router.get('/:messId/members/:memberId/meal-sheet', messController.getMemberMealSheet);
+
+/**
  * @route   GET /api/messes/:messId/bazar
  * @desc    Get all bazar entries, item lists, and buyer breakdowns for transparency
  * @access  Protected

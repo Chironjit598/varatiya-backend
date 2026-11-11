@@ -292,6 +292,51 @@ class MessController {
   }
 
   /**
+   * PATCH /api/messes/:messId/members/:memberId/meal-slots/range
+   */
+  async setMemberDateSlotsRange(req, res, next) {
+    try {
+      const mess = await messService.setMemberDateSlotsRange(
+        req.params.messId,
+        req.params.memberId,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'নির্দিষ্ট তারিখগুলোর মিল স্লট সফলভাবে আপডেট করা হয়েছে',
+        data: {
+          mess,
+          managedMess: mess,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/members/:memberId/meal-sheet
+   */
+  async getMemberMealSheet(req, res, next) {
+    try {
+      const sheet = await messService.getMemberMealSheet(
+        req.params.messId,
+        req.params.memberId,
+        req.query
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: '৩০ দিনের মিল শিট পাওয়া গেছে',
+        data: sheet,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * GET /api/messes/:messId/bazar
    */
   async getBazarEntries(req, res, next) {
