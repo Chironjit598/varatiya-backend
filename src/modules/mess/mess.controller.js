@@ -1041,6 +1041,88 @@ class MessController {
       next(error);
     }
   }
+
+  /**
+   * GET /api/messes/:messId/current-sheet-preview
+   */
+  async getCurrentSheetPreview(req, res, next) {
+    try {
+      const sheet = await messService.getCurrentSheetPreview(
+        req.params.messId,
+        req.user
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'চলতি মাসের হিসাব বিবরণী পাওয়া গেছে',
+        data: sheet,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/messes/:messId/close-month
+   */
+  async closeCurrentMonth(req, res, next) {
+    try {
+      const result = await messService.closeCurrentMonth(
+        req.params.messId,
+        req.user,
+        req.body
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'চলতি মাস সফলভাবে ক্লোজ করা হয়েছে এবং নতুন মাস চালু হয়েছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/monthly-sheets
+   */
+  async getMonthlySheetsHistory(req, res, next) {
+    try {
+      const history = await messService.getMonthlySheetsHistory(
+        req.params.messId,
+        req.user
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বিগত মাসগুলোর হিসাব বিবরণীর তালিকা পাওয়া গেছে',
+        data: history,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/messes/:messId/monthly-sheets/:monthKey
+   */
+  async getMonthlySheetDetails(req, res, next) {
+    try {
+      const sheet = await messService.getMonthlySheetDetails(
+        req.params.messId,
+        req.params.monthKey,
+        req.user
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'নির্দিষ্ট মাসের পূর্ণাঙ্গ হিসাব বিবরণী পাওয়া গেছে',
+        data: sheet,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new MessController();

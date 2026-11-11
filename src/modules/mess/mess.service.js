@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const ManagedMess = require('./mess.model');
 const PaymentRecord = require('./paymentRecord.model');
+const MonthlySheet = require('./monthlySheet.model');
 const Property = require('../property/property.model');
 const User = require('../auth/user.model');
 const userService = require('../user/user.service');
@@ -3657,6 +3658,271 @@ class MessService {
       console.error('[Roster Reminder Worker Error]:', err.message);
       return 0;
     }
+  }
+
+  /**
+   * Helper: Build month summary sheet object from a formatted ManagedMess document
+   */
+  buildSheetFromMess(formattedMess, options = {}) {
+    const accSum = formattedMess.accountsSummary || {};
+    const mealLedger = accSum.mealLedger || {};
+    const rentLedger = accSum.rentUtilityLedger || {};
+
+    const membersSummary = (formattedMess.members || []).map((m) => {
+      const mealAcc = m.accounts?.meal || {};
+      const rentAcc = m.accounts?.seatRent || {};
+      const utilAcc = m.accounts?.utility || {};
+      const devAcc = m.accounts?.developmentFund || {};
+      const totalSum = m.accounts?.totalSummary || {};
+
+      return {
+        memberId: (m.id || m._id || '').toString(),
+        memberName: m.name || '',
+        phone: m.phone || '',
+        role: m.role || 'border',
+        roles: m.roles || ['border'],
+        roleLabel: m.roleLabel || 'বর্ডার',
+        assignedRoomName: m.assignedRoomName || null,
+        assignedSeatNumber: m.assignedSeatNumber !== undefined ? m.assignedSeatNumber : null,
+        mealsConsumed: Number(mealAcc.mealsConsumed || 0),
+        mealCost: Number(mealAcc.totalMealCost || 0),
+        bazarContributed: Number(m.totalMoneyDeposited || 0),
+        totalMoneyDeposited: Number(m.totalMoneyDeposited || 0),
+        mealBalance: Number(mealAcc.balance || 0),
+        mealStatus: mealAcc.status || (mealAcc.balance >= 0 ? 'receivable' : 'payable'),
+        mealDue: Number(mealAcc.due || 0),
+        seatRent: Number(rentAcc.seatRent || 0),
+        paidRent: Number(rentAcc.paidRent || 0),
+        seatRentDue: Number(rentAcc.due || 0),
+        utilityShare: Number(utilAcc.utilityShare || 0),
+        paidUtility: Number(utilAcc.paidUtility || 0),
+        utilityDue: Number(utilAcc.due || 0),
+        developmentFee: Number(devAcc.monthlyFee || 0),
+        paidDevelopmentFee: Number(devAcc.paidFee || 0),
+        devFeeDue: Number(devAcc.due || 0),
+        totalPayable: Number(totalSum.totalPayable || 0),
+        totalPaid: Number(totalSum.totalPaid || 0),
+        totalDue: Number(totalSum.totalDue || 0),
+        overallBalance: Number(totalSum.overallBalance || 0),
+      };
+    });
+
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthKey = options.monthKey || currentMonthKey;
+    const monthLabel = options.monthLabel || formattedMess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬';
+
+    return {
+      messId: (formattedMess._id || formattedMess.id).toString(),
+      messName: formattedMess.name || '',
+      monthKey,
+      monthLabel,
+      operatingMode: formattedMess.operatingMode || 'bachelor_flat',
+      operatingModeLabel: formattedMess.operatingModeLabel || '',
+      totalBazarCost: Number(mealLedger.totalBazarCost || formattedMess.totalBazarCost || 0),
+      totalMeals: Number(mealLedger.totalMeals || formattedMess.totalMessMeals || 0),
+      mealRate: Number(mealLedger.mealRate || formattedMess.mealRate || 0),
+      totalExpectedRent: Number(rentLedger.totalExpectedRent || 0),
+      totalCollectedRent: Number(rentLedger.totalCollectedRent || 0),
+      rentDue: Number(rentLedger.rentDue || 0),
+      totalSharedUtilityBills: Number(rentLedger.totalSharedUtilityBills || formattedMess.totalSharedBills || 0),
+      perBorderUtilityShare: Number(rentLedger.perBorderUtilityShare || formattedMess.perBorderUtilityShare || 0),
+      totalCollectedUtility: Number(rentLedger.totalCollectedUtility || 0),
+      utilityDue: Number(rentLedger.utilityDue || 0),
+      accountsSummary: accSum,
+      membersSummary,
+      bazarEntriesSnapshot: Array.isArray(formattedMess.bazarEntries) ? formattedMess.bazarEntries : [],
+      closedAt: options.closedAt || new Date(),
+      closedBy: options.closedBy || '',
+      closedByName: options.closedByName || '',
+    };
+  }
+
+  /**
+   * Preview ongoing current month sheet
+   * GET /api/messes/:messId/current-sheet-preview
+   */
+  async getCurrentSheetPreview(messId, user) {
+    const mess = await ManagedMess.findOne({
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(messId)
+          ? [{ _id: messId }, { propertyId: messId }]
+          : []),
+      ],
+    });
+
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const formatted = formatManagedMess(mess);
+    return this.buildSheetFromMess(formatted, {
+      monthLabel: mess.mealConfig?.currentMonth || 'চলতি মাস',
+    });
+  }
+
+  /**
+   * Finalize / Close current month and reset counters for next month
+   * POST /api/messes/:messId/close-month
+   * Body: { monthKey, monthLabel, nextMonthLabel }
+   */
+  async closeCurrentMonth(messId, user, payload = {}) {
+    const mess = await ManagedMess.findOne({
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(messId)
+          ? [{ _id: messId }, { propertyId: messId }]
+          : []),
+      ],
+    });
+
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const userIdStr = (user._id || user.id).toString();
+    const isManager = mess.managerId === userIdStr || mess.managerPhone === user.phoneNumber;
+    const memberObj = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === user.phoneNumber
+    );
+    const isAdmin = memberObj && (memberObj.isAdmin || memberObj.isManager || (memberObj.roles || []).includes('controller'));
+
+    if (!isManager && !isAdmin) {
+      const error = new Error('শুধুমাত্র মেস কন্ট্রোলার বা ম্যানেজার মাস ক্লোজ করতে পারেন');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const now = new Date();
+    const defaultMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthKey = payload.monthKey || defaultMonthKey;
+    const monthLabel = payload.monthLabel || mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬';
+
+    // 1. Generate snapshot sheet
+    const formatted = formatManagedMess(mess);
+    const sheetData = this.buildSheetFromMess(formatted, {
+      monthKey,
+      monthLabel,
+      closedBy: userIdStr,
+      closedByName: user.name,
+      closedAt: new Date(),
+    });
+
+    // 2. Save or update the finalized MonthlySheet
+    const savedSheet = await MonthlySheet.findOneAndUpdate(
+      { messId: mess._id.toString(), monthKey },
+      sheetData,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    // 3. Reset ongoing month counters for fresh next month start
+    const nextMonth = payload.nextMonthLabel
+      ? String(payload.nextMonthLabel).trim()
+      : 'পরবর্তী মাস';
+
+    const defaultSlots = Array(mess.mealConfig?.mealsPerDay || 2).fill(true);
+    for (const m of mess.members) {
+      m.totalMealsConsumed = 0;
+      m.totalMoneyDeposited = 0;
+      m.paidRent = 0;
+      m.paidUtility = 0;
+      m.paidDevelopmentFee = 0;
+      m.todayMealSlots = [...defaultSlots];
+      m.customDateSlots = {};
+    }
+
+    mess.bazarEntries = [];
+    mess.mealConfig.currentMonth = nextMonth;
+    mess.markModified('members');
+    mess.markModified('bazarEntries');
+    mess.markModified('mealConfig');
+    await mess.save();
+
+    return {
+      closedSheet: savedSheet,
+      newMonthMess: formatManagedMess(mess),
+    };
+  }
+
+  /**
+   * Get list of historical closed monthly sheets (previous 5+ months)
+   * GET /api/messes/:messId/monthly-sheets
+   */
+  async getMonthlySheetsHistory(messId, user) {
+    const mess = await ManagedMess.findOne({
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(messId)
+          ? [{ _id: messId }, { propertyId: messId }]
+          : []),
+      ],
+    });
+
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const sheets = await MonthlySheet.find({
+      messId: mess._id.toString(),
+    })
+      .sort({ monthKey: -1 })
+      .limit(12)
+      .select('messId messName monthKey monthLabel operatingMode operatingModeLabel totalBazarCost totalMeals mealRate totalExpectedRent totalCollectedRent rentDue totalSharedUtilityBills perBorderUtilityShare closedAt closedByName');
+
+    return {
+      messId: mess._id.toString(),
+      currentActiveMonth: mess.mealConfig?.currentMonth || 'নভেম্বর ২০২৬',
+      totalSheetsFound: sheets.length,
+      history: sheets,
+    };
+  }
+
+  /**
+   * Get full details of a specific month's sheet
+   * GET /api/messes/:messId/monthly-sheets/:monthKey
+   */
+  async getMonthlySheetDetails(messId, monthKey, user) {
+    const mess = await ManagedMess.findOne({
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(messId)
+          ? [{ _id: messId }, { propertyId: messId }]
+          : []),
+      ],
+    });
+
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const sheet = await MonthlySheet.findOne({
+      messId: mess._id.toString(),
+      monthKey,
+    });
+
+    if (sheet) {
+      return sheet;
+    }
+
+    // If monthKey matches current month or requested preview, return live preview
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    if (monthKey === currentMonthKey || monthKey === 'current') {
+      const formatted = formatManagedMess(mess);
+      return this.buildSheetFromMess(formatted, {
+        monthKey: currentMonthKey,
+        monthLabel: mess.mealConfig?.currentMonth || 'চলতি মাস',
+      });
+    }
+
+    const error = new Error(`${monthKey} মাসের হিসাব শিট পাওয়া যায়নি`);
+    error.statusCode = 404;
+    throw error;
   }
 }
 

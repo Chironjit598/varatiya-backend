@@ -339,5 +339,33 @@ router.get('/:messId/deposits/summary', messController.getDepositsSummary);
  */
 router.get('/:messId/today-meals', messController.getTodayMeals);
 
+/**
+ * @route   GET /api/messes/:messId/current-sheet-preview
+ * @desc    Get real-time live preview of the current ongoing month's settlement sheet
+ * @access  Protected
+ */
+router.get('/:messId/current-sheet-preview', messController.getCurrentSheetPreview);
+
+/**
+ * @route   POST /api/messes/:messId/close-month
+ * @desc    Close/Finalize current month, save snapshot to MonthlySheet, and rollover counters to new month
+ * @access  Protected
+ */
+router.post('/:messId/close-month', messController.closeCurrentMonth);
+
+/**
+ * @route   GET /api/messes/:messId/monthly-sheets
+ * @desc    Get historical list of past closed monthly sheets (previous 5+ months)
+ * @access  Protected
+ */
+router.get('/:messId/monthly-sheets', messController.getMonthlySheetsHistory);
+
+/**
+ * @route   GET /api/messes/:messId/monthly-sheets/:monthKey
+ * @desc    Get full details of a specific historical monthly sheet
+ * @access  Protected
+ */
+router.get('/:messId/monthly-sheets/:monthKey', messController.getMonthlySheetDetails);
+
 module.exports = router;
 
