@@ -20,7 +20,7 @@ const env = {
   RESEND_API_KEY:
     process.env.RESEND_API_KEY ||
     Buffer.from('cmVfQ2h1RWNZVkdfN3FnRnJBOGVmR0NDMnNhR01OWENGTDhu', 'base64').toString('utf8'),
-  RESEND_FROM: process.env.RESEND_FROM || 'onboarding@resend.dev',
+  RESEND_FROM: process.env.RESEND_FROM || 'ভাড়াটিয়া <otp@varatia.store>',
   SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
   SMTP_PORT: Number(process.env.SMTP_PORT) || 465,
   SMTP_USER: process.env.SMTP_USER || process.env.EMAIL_USER || 'devchir8@gmail.com',

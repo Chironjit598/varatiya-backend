@@ -94,7 +94,7 @@ const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: env.RESEND_FROM || 'onboarding@resend.dev',
+          from: env.RESEND_FROM || 'ভাড়াটিয়া <otp@varatia.store>',
           to: email,
           subject,
           html,
