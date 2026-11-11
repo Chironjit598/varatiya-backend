@@ -42,6 +42,14 @@ const userSchema = new mongoose.Schema(
       ref: 'ManagedMess',
       default: null,
     },
+    activeMode: {
+      type: String,
+      enum: {
+        values: ['general', 'family', 'bachelorAdmin', 'bachelorMember', 'messManager', 'messBorder'],
+        message: '{VALUE} is not a valid mode',
+      },
+      default: 'general',
+    },
     isPhoneVerified: {
       type: Boolean,
       default: true,

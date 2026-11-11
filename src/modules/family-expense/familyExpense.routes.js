@@ -21,6 +21,13 @@ router.get('/', familyExpenseController.getExpenses);
 router.post('/', familyExpenseController.createExpense);
 
 /**
+ * @route   POST /api/family-expenses/activate
+ * @desc    Convert user account into Family Mode
+ * @access  Protected
+ */
+router.post('/activate', familyExpenseController.activateFamilyMode);
+
+/**
  * @route   PATCH /api/family-expenses/:id/toggle-paid
  * @desc    Toggle paid/unpaid status of a family expense
  * @access  Protected

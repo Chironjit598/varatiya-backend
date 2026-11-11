@@ -57,6 +57,23 @@ class FamilyExpenseController {
   }
 
   /**
+   * POST /api/family-expenses/activate
+   * Convert user account into Family Mode
+   */
+  async activateFamilyMode(req, res, next) {
+    try {
+      const result = await familyExpenseService.activateFamilyMode(req.user._id);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'আপনার অ্যাকাউন্ট সফলভাবে পারিবারিক মোড (Family Mode)-এ কনভার্ট হয়েছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * DELETE /api/family-expenses/:id
    */
   async deleteExpense(req, res, next) {

@@ -18,5 +18,12 @@ router.get('/search', authenticate, userController.searchUsers);
  */
 router.get('/by-phone/:phone', authenticate, userController.getUserByPhone);
 
+/**
+ * @route   POST /api/users/mode
+ * @desc    Set or convert user's active mode ('family' or 'general')
+ * @access  Protected
+ */
+router.post('/mode', authenticate, userController.setUserMode);
+
 module.exports = router;
 

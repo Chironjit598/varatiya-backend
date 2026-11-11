@@ -31,7 +31,24 @@ class UserService {
     }
 
     const mess = await ManagedMess.findOne(filter).lean();
-    if (!mess) return null;
+    if (!mess) {
+      if (userIdStr) {
+        const currentUser = await User.findById(userIdStr).select('activeMode').lean();
+        if (currentUser && currentUser.activeMode === 'family') {
+          return {
+            messId: null,
+            messName: 'পারিবারিক বাসা',
+            mode: 'family',
+            roleText: 'পারিবারিক হিসাব',
+            typeText: 'পারিবারিক বাসা',
+            bookedSeatNumber: null,
+            bookedRoomName: null,
+            message: 'আপনি বর্তমানে পারিবারিক খরচ (Family Mode) ট্র্যাকিংয়ে আছেন।',
+          };
+        }
+      }
+      return null;
+    }
 
     const messName = mess.name || 'একটি মেস/বাসা';
     const isManagedMessType =
@@ -227,6 +244,42 @@ class UserService {
       user: formattedUsers[0],
       users: formattedUsers,
       ...formattedUsers[0],
+    };
+  }
+
+  /**
+   * Set or switch active mode for user (e.g. 'family' or 'general')
+   * @param {string} userId
+   * @param {string} mode
+   */
+  async setUserMode(userId, mode) {
+    const validModes = ['general', 'family'];
+    if (!validModes.includes(mode)) {
+      const error = new Error('সঠিক মোড নির্বাচন করুন (Valid modes are general or family)');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (mode === 'family') {
+      const existingAffiliation = await this.getUserActiveAffiliation(userId, null);
+      if (existingAffiliation && existingAffiliation.mode !== 'family') {
+        const error = new Error(
+          `আপনি ইতিমধ্যে "${existingAffiliation.messName}" (${existingAffiliation.roleText}) হিসেবে যুক্ত আছেন। ফ্যামিলি মোডে যাওয়ার আগে পূর্বের বাসা বা মেস থেকে লিভ নিন।`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    await User.findByIdAndUpdate(userId, { activeMode: mode });
+
+    const authService = require('../auth/auth.service');
+    const updatedUser = await authService.getProfile(userId);
+
+    return {
+      user: updatedUser,
+      activeMode: mode,
+      activeAffiliation: updatedUser.activeAffiliation,
     };
   }
 }

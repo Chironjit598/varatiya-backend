@@ -64,7 +64,21 @@ class FamilyExpenseService {
       isPaid: Boolean(isPaid),
     });
 
+    // Automatically ensure user's active mode is set to 'family'
+    try {
+      const User = require('../auth/user.model');
+      await User.findByIdAndUpdate(userId, { activeMode: 'family' });
+    } catch (_) {}
+
     return this.formatExpense(expense);
+  }
+
+  /**
+   * Explicitly activate family mode for user
+   */
+  async activateFamilyMode(userId) {
+    const userService = require('../user/user.service');
+    return userService.setUserMode(userId, 'family');
   }
 
   /**

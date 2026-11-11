@@ -1932,6 +1932,9 @@ class MessService {
       await FamilyExpense.deleteMany({ userId: user._id });
     }
 
+    // Reset user's activeMode to 'general'
+    await User.findByIdAndUpdate(user._id, { activeMode: 'general', affiliatedMessId: null });
+
     // Return the user's fresh profile with General Mode status
     const authService = require('../auth/auth.service');
     const updatedUser = await authService.getProfile(user._id);
