@@ -292,6 +292,87 @@ const normalizeUtilityBills = (rawBills) => {
 };
 
 /**
+ * Initialize meal slots for a newly added member:
+ * - All past days of this month before joining date are automatically OFF ([false, false])
+ * - Today's slots are default ON ([true, true])
+ * - Initial totalMealsConsumed = today's active meal count!
+ */
+const initializeMemberMealSlots = (mealsPerDay = 2, joinDate = new Date()) => {
+  const dObj = joinDate instanceof Date && !isNaN(joinDate.getTime()) ? joinDate : new Date();
+  const year = dObj.getFullYear();
+  const month = dObj.getMonth() + 1;
+  const todayDay = dObj.getDate();
+  const monthStr = String(month).padStart(2, '0');
+  const todayKey = `${year}-${monthStr}-${String(todayDay).padStart(2, '0')}`;
+
+  const customDateSlots = {};
+  const offSlots = Array(mealsPerDay).fill(false);
+  const onSlots = Array(mealsPerDay).fill(true);
+
+  // Past days of this month before joining date are automatically OFF
+  for (let d = 1; d < todayDay; d++) {
+    const dStr = String(d).padStart(2, '0');
+    const dateKey = `${year}-${monthStr}-${dStr}`;
+    customDateSlots[dateKey] = [...offSlots];
+  }
+
+  // Today is default ON
+  customDateSlots[todayKey] = [...onSlots];
+  const todayMealSlots = [...onSlots];
+  const totalMealsConsumed = onSlots.filter(Boolean).length;
+
+  return {
+    todayMealSlots,
+    customDateSlots,
+    totalMealsConsumed,
+    joinedDate: todayKey,
+  };
+};
+
+/**
+ * Compute total meals consumed by a member from start of current month up to today
+ */
+const calculateMemberMonthMeals = (member, mealsPerDay = 2, referenceDate = new Date()) => {
+  if (!member) return 0;
+  const dObj = referenceDate instanceof Date && !isNaN(referenceDate.getTime()) ? referenceDate : new Date();
+  const year = dObj.getFullYear();
+  const month = dObj.getMonth() + 1;
+  const todayDay = dObj.getDate();
+  const monthStr = String(month).padStart(2, '0');
+  const todayKey = `${year}-${monthStr}-${String(todayDay).padStart(2, '0')}`;
+
+  let customSlotsMap = {};
+  if (member.customDateSlots instanceof Map) {
+    customSlotsMap = Object.fromEntries(member.customDateSlots);
+  } else if (member.customDateSlots && typeof member.customDateSlots === 'object') {
+    customSlotsMap = { ...member.customDateSlots };
+  }
+
+  const todaySlots = Array.isArray(member.todayMealSlots)
+    ? member.todayMealSlots
+    : Array(mealsPerDay).fill(true);
+
+  let totalMeals = 0;
+  for (let d = 1; d <= todayDay; d++) {
+    const dStr = String(d).padStart(2, '0');
+    const dateKey = `${year}-${monthStr}-${dStr}`;
+
+    if (dateKey === todayKey) {
+      const slots = Array.isArray(customSlotsMap[todayKey])
+        ? customSlotsMap[todayKey]
+        : todaySlots;
+      totalMeals += slots.slice(0, mealsPerDay).filter(Boolean).length;
+    } else {
+      if (Array.isArray(customSlotsMap[dateKey])) {
+        totalMeals += customSlotsMap[dateKey].slice(0, mealsPerDay).filter(Boolean).length;
+      }
+    }
+  }
+
+  return totalMeals;
+};
+
+/**
  * Format and enrich a ManagedMess document with exact financial & utility calculations:
  * - totalSeats = sum(room.seats.length)
  * - vacantSeats = sum(room.seats.filter(s => !s.isBooked).length)
@@ -339,6 +420,16 @@ const formatManagedMess = (messDoc) => {
   );
 
   const members = Array.isArray(mess.members) ? mess.members : [];
+  const mealsPerDay = Number(mess.mealConfig?.mealsPerDay) === 3 ? 3 : 2;
+
+  // Ensure member totalMealsConsumed reflects active slots if currently 0
+  for (const member of members) {
+    const calc = calculateMemberMonthMeals(member, mealsPerDay);
+    if ((member.totalMealsConsumed === undefined || member.totalMealsConsumed === null || member.totalMealsConsumed === 0) && calc > 0) {
+      member.totalMealsConsumed = calc;
+    }
+  }
+
   const totalMessMeals = members.reduce(
     (sum, member) => sum + Number(member.totalMealsConsumed || 0),
     0
@@ -369,7 +460,6 @@ const formatManagedMess = (messDoc) => {
       ? 'ঢাকার মেস (সেন্ট্রালাইজড মোড)'
       : 'ঢাকার বাইরের মেস (শেয়ার্ড / স্টুডেন্ট মোড)';
 
-  const mealsPerDay = Number(mess.mealConfig?.mealsPerDay) === 3 ? 3 : 2;
   const slotNames =
     mealsPerDay === 3
       ? ['সকাল (Breakfast)', 'দুপুর (Lunch)', 'রাত (Dinner)']
@@ -631,6 +721,8 @@ module.exports = {
   normalizeRoomsArray,
   calculateSeatMetrics,
   normalizeUtilityBills,
+  initializeMemberMealSlots,
+  calculateMemberMonthMeals,
   formatManagedMess,
 };
 

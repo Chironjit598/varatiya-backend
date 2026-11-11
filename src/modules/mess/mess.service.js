@@ -13,6 +13,8 @@ const {
   calculateSeatMetrics,
   extractRoomCountsFromRooms,
   normalizeUtilityBills,
+  initializeMemberMealSlots,
+  calculateMemberMonthMeals,
   formatManagedMess,
 } = require('../../utils/messHelper');
 
@@ -265,6 +267,7 @@ class MessService {
     const metrics = calculateSeatMetrics(rooms);
     const roomCounts = extractRoomCountsFromRooms(rooms);
 
+    const slotInit = initializeMemberMealSlots(2, new Date());
     const members = [
       {
         id: userIdStr,
@@ -274,13 +277,13 @@ class MessService {
         isManager: true,
         role: 'controller',
         roles: ['controller'],
-        todayMealSlots: [true, true],
-        totalMealsConsumed: 0,
+        todayMealSlots: slotInit.todayMealSlots,
+        customDateSlots: slotInit.customDateSlots,
+        totalMealsConsumed: slotInit.totalMealsConsumed,
         totalMoneyDeposited: 0,
         paidRent: 0,
         paidUtility: 0,
         paidDevelopmentFee: 0,
-        customDateSlots: {},
       },
     ];
 
@@ -725,6 +728,7 @@ class MessService {
 
     // 5. Add or update border in mess.members
     const mealsPerDay = mess.mealConfig?.mealsPerDay || 2;
+    const slotInit = initializeMemberMealSlots(mealsPerDay, new Date());
     const existingMember = mess.members.find(
       (m) =>
         m.id === registeredUser.id ||
@@ -745,13 +749,14 @@ class MessService {
         isAdmin: false,
         isManager: false,
         role: 'border',
-        totalMealsConsumed: 0,
+        roles: ['border'],
+        totalMealsConsumed: slotInit.totalMealsConsumed,
         totalMoneyDeposited: resolvedAdvanceDeposit,
         paidRent: 0,
         paidUtility: 0,
         paidDevelopmentFee: 0,
-        todayMealSlots: Array(mealsPerDay).fill(true),
-        customDateSlots: {},
+        todayMealSlots: slotInit.todayMealSlots,
+        customDateSlots: slotInit.customDateSlots,
       });
     }
 
@@ -1156,11 +1161,18 @@ class MessService {
       currentTodaySlots.push(true);
     }
 
-    let dateSlots = Array.isArray(customSlotsMap[targetDateKey])
-      ? [...customSlotsMap[targetDateKey]]
-      : [...currentTodaySlots];
+    let dateSlots;
+    if (Array.isArray(customSlotsMap[targetDateKey])) {
+      dateSlots = [...customSlotsMap[targetDateKey]];
+    } else if (targetDateKey === todayKey) {
+      dateSlots = [...currentTodaySlots];
+    } else if (targetDateKey < todayKey) {
+      dateSlots = Array(mealsPerDay).fill(false);
+    } else {
+      dateSlots = Array(mealsPerDay).fill(true);
+    }
     while (dateSlots.length < mealsPerDay) {
-      dateSlots.push(true);
+      dateSlots.push(targetDateKey < todayKey ? false : true);
     }
 
     const previousState = Boolean(dateSlots[slotIndex]);
@@ -1174,15 +1186,8 @@ class MessService {
       member.todayMealSlots = currentTodaySlots;
     }
 
-    // Adjust totalMealsConsumed
-    if (newState) {
-      member.totalMealsConsumed = Number(member.totalMealsConsumed || 0) + 1;
-    } else {
-      member.totalMealsConsumed = Math.max(
-        0,
-        Number(member.totalMealsConsumed || 0) - 1
-      );
-    }
+    // Sync totalMealsConsumed exactly with active slots up to today
+    member.totalMealsConsumed = calculateMemberMonthMeals(member, mealsPerDay);
 
     mess.markModified('members');
     await mess.save();
@@ -1355,9 +1360,18 @@ class MessService {
       const monthStr = String(month).padStart(2, '0');
       const dateKey = `${year}-${monthStr}-${dayStr}`;
 
-      const slots = Array.isArray(customSlotsMap[dateKey])
-        ? customSlotsMap[dateKey]
-        : (dateKey === todayKey && Array.isArray(member.todayMealSlots) ? member.todayMealSlots : defaultSlots);
+      let slots;
+      if (Array.isArray(customSlotsMap[dateKey])) {
+        slots = customSlotsMap[dateKey];
+      } else if (dateKey === todayKey && Array.isArray(member.todayMealSlots)) {
+        slots = member.todayMealSlots;
+      } else if (dateKey < todayKey) {
+        // Past days before joining or unrecorded are automatically OFF
+        slots = Array(mealsPerDay).fill(false);
+      } else {
+        // Future days default to ON
+        slots = defaultSlots;
+      }
 
       sheet.push({
         dayNumber: day,
@@ -1727,6 +1741,11 @@ class MessService {
 
     const mealsPerDay = mess.mealConfig?.mealsPerDay || 2;
     const deposit = Number(initialDeposit ?? totalMoneyDeposited ?? 0) || 0;
+    const slotInit = initializeMemberMealSlots(mealsPerDay, new Date());
+    const initialMeals =
+      totalMealsConsumed !== undefined && totalMealsConsumed !== null && !isNaN(Number(totalMealsConsumed))
+        ? Number(totalMealsConsumed)
+        : slotInit.totalMealsConsumed;
 
     const newMember = {
       id: registeredUser.id,
@@ -1736,10 +1755,10 @@ class MessService {
       roles: isAdmin ? ['controller'] : ['border'],
       isAdmin: Boolean(isAdmin),
       isManager: false,
-      totalMealsConsumed: Number(totalMealsConsumed || 0),
+      totalMealsConsumed: initialMeals,
       totalMoneyDeposited: deposit,
-      todayMealSlots: Array(mealsPerDay).fill(true),
-      customDateSlots: {},
+      todayMealSlots: slotInit.todayMealSlots,
+      customDateSlots: slotInit.customDateSlots,
     };
 
     mess.members.push(newMember);
