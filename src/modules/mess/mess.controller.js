@@ -292,6 +292,26 @@ class MessController {
   }
 
   /**
+   * GET /api/messes/:messId/bazar
+   */
+  async getBazarEntries(req, res, next) {
+    try {
+      const result = await messService.getBazarEntries(
+        req.params.messId,
+        req.user
+      );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বাজারের তালিকা ও সামারি পাওয়া গেছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * POST /api/messes/:messId/bazar
    */
   async addBazarEntry(req, res, next) {

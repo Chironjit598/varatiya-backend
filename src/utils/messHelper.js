@@ -363,7 +363,9 @@ const formatManagedMess = (messDoc) => {
   const operatingMode = mess.operatingMode || (isDhakaArea(mess.area) ? 'dhaka_centralized' : 'student_shared');
   mess.operatingMode = operatingMode;
   mess.operatingModeLabel =
-    operatingMode === 'dhaka_centralized'
+    operatingMode === 'bachelor_flat'
+      ? 'ব্যাচেলর বাসা (প্রাইভেট ফ্ল্যাট মোড)'
+      : operatingMode === 'dhaka_centralized'
       ? 'ঢাকার মেস (সেন্ট্রালাইজড মোড)'
       : 'ঢাকার বাইরের মেস (শেয়ার্ড / স্টুডেন্ট মোড)';
 
@@ -531,6 +533,9 @@ const formatManagedMess = (messDoc) => {
           totalMealDeposit: memberMealDeposit,
           balance: mealBalance,
           due: mealDue,
+          status: mealBalance >= 0 ? 'receivable' : 'payable',
+          receivableAmount: Math.max(0, mealBalance),
+          payableAmount: Math.max(0, -mealBalance),
         },
         seatRent: {
           seatRent: memberSeatRent,
@@ -569,6 +574,36 @@ const formatManagedMess = (messDoc) => {
   mess.mealRate = Number(mealRate.toFixed(2));
   mess.totalSharedBills = totalSharedBills;
   mess.perBorderUtilityShare = perBorderUtilityShare;
+
+  const totalExpectedRent = members.reduce((sum, m) => {
+    const assigned = seatByPhone[m.phone];
+    const rent = assigned && assigned.seat.rentAmount !== null && assigned.seat.rentAmount !== undefined
+      ? Number(assigned.seat.rentAmount)
+      : Number(mess.defaultSeatRent || 0);
+    return sum + rent;
+  }, 0);
+  const totalCollectedRent = members.reduce((sum, m) => sum + Number(m.paidRent || 0), 0);
+  const totalCollectedUtility = members.reduce((sum, m) => sum + Number(m.paidUtility || 0), 0);
+  const totalMemberDeposits = members.reduce((sum, m) => sum + Number(m.totalMoneyDeposited || 0), 0);
+
+  mess.accountsSummary = {
+    mealLedger: {
+      totalBazarCost,
+      totalMeals: totalMessMeals,
+      mealRate: Number(mealRate.toFixed(2)),
+      totalMemberDeposits,
+      netMealBalance: totalMemberDeposits - (totalMessMeals * Number(mealRate.toFixed(2))),
+    },
+    rentUtilityLedger: {
+      totalExpectedRent,
+      totalCollectedRent,
+      rentDue: Math.max(0, totalExpectedRent - totalCollectedRent),
+      totalSharedUtilityBills: totalSharedBills,
+      perBorderUtilityShare,
+      totalCollectedUtility,
+      utilityDue: Math.max(0, (perBorderUtilityShare * (members.length || 1)) - totalCollectedUtility),
+    },
+  };
 
   return mess;
 };

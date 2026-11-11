@@ -309,7 +309,7 @@ class MessService {
 
     const autoOperatingMode =
       payload.operatingMode &&
-      ['student_shared', 'dhaka_centralized'].includes(payload.operatingMode)
+      ['student_shared', 'dhaka_centralized', 'bachelor_flat'].includes(payload.operatingMode)
         ? payload.operatingMode
         : isDhakaArea(resolvedArea || resolvedAddress)
         ? 'dhaka_centralized'
@@ -1145,9 +1145,34 @@ class MessService {
         (buyerMemberName && m.name === buyerMemberName)
     );
 
-    // CRITICAL: Decoupled from personal deposit!
-    // Bazar expense is paid from mess cash fund, NOT personal deposit credit.
-    // Member deposit increases ONLY when explicitly submitted via deposit API.
+    // Decoupled from personal deposit in standard mess (student_shared / dhaka_centralized).
+    // In Bachelor Flat mode:
+    // Bazar expense is paid directly from the buyer's personal pocket (no manager advance deposit).
+    // Therefore, the amount spent on bazar is credited directly to buyer's meal deposit!
+    if (mess.operatingMode === 'bachelor_flat') {
+      if (buyerMember) {
+        buyerMember.totalMoneyDeposited = Number(buyerMember.totalMoneyDeposited || 0) + computedTotal;
+        mess.markModified('members');
+      }
+
+      // Record a PaymentRecord for transparency & audit
+      try {
+        await PaymentRecord.create({
+          messId: mess._id.toString(),
+          memberId: buyerMember ? buyerMember.id : targetBuyerId,
+          memberName: buyerMember ? buyerMember.name : (buyerMemberName || user.name),
+          category: 'meal',
+          amount: computedTotal,
+          paymentMethod: 'bazar_contribution',
+          collectorId: (user._id || user.id).toString(),
+          collectorName: user.name || 'নিজস্ব বাজার',
+          note: `বাজারের খরচ (স্বয়ংক্রিয় মিল জমা) - ${note || (items.length > 0 ? items.map((i) => i.name).join(', ') : 'বাজার সামগ্রী')}`,
+          date: date ? new Date(date) : new Date(),
+        });
+      } catch (err) {
+        console.warn('Could not record payment record for bachelor flat bazar:', err.message);
+      }
+    }
 
     const newEntry = {
       id: `bazar_${Date.now()}_${Math.round(Math.random() * 1000)}`,
@@ -1221,12 +1246,89 @@ class MessService {
       throw error;
     }
 
-    // Remove entry (personal deposit is not modified because bazar is decoupled from deposit)
+    // Remove entry
     mess.bazarEntries.splice(bazarIndex, 1);
+
+    // In Bachelor Flat mode, reverse buyer's deposit credit:
+    if (mess.operatingMode === 'bachelor_flat') {
+      const buyerMember = (mess.members || []).find(
+        (m) =>
+          m.id === targetBazar.buyerMemberId ||
+          m.phone === targetBazar.buyerMemberId ||
+          (targetBazar.buyerMemberName && m.name === targetBazar.buyerMemberName)
+      );
+      if (buyerMember) {
+        buyerMember.totalMoneyDeposited = Math.max(
+          0,
+          Number(buyerMember.totalMoneyDeposited || 0) - Number(targetBazar.totalAmount || 0)
+        );
+        mess.markModified('members');
+      }
+    }
+
     mess.markModified('bazarEntries');
     await mess.save();
 
     return formatManagedMess(mess);
+  }
+
+  /**
+   * Get all Bazar Entries with summary, buyer breakdown & transparency list
+   * GET /api/messes/:messId/bazar
+   */
+  async getBazarEntries(messId, user) {
+    const mess = await ManagedMess.findOne({
+      $or: [
+        ...(mongoose.Types.ObjectId.isValid(messId)
+          ? [{ _id: messId }, { propertyId: messId }]
+          : []),
+      ],
+    });
+
+    if (!mess) {
+      const error = new Error('মেসটি পাওয়া যায়নি (Mess not found)');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const userIdStr = (user._id || user.id).toString();
+    const userPhone = user.phoneNumber;
+    const memberObj = (mess.members || []).find(
+      (m) => m.id === userIdStr || m.phone === userPhone
+    );
+
+    const rawEntries = Array.isArray(mess.bazarEntries) ? mess.bazarEntries : [];
+    const entries = [...rawEntries].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const totalBazarCost = entries.reduce((sum, e) => sum + Number(e.totalAmount || 0), 0);
+
+    const buyerMap = {};
+    for (const e of entries) {
+      const bId = e.buyerMemberId || 'unknown';
+      if (!buyerMap[bId]) {
+        buyerMap[bId] = {
+          buyerMemberId: bId,
+          buyerMemberName: e.buyerMemberName || 'বর্ডার',
+          totalAmount: 0,
+          entryCount: 0,
+        };
+      }
+      buyerMap[bId].totalAmount += Number(e.totalAmount || 0);
+      buyerMap[bId].entryCount += 1;
+    }
+
+    const myBuyerInfo = memberObj ? buyerMap[memberObj.id] || buyerMap[userIdStr] || null : null;
+    const myTotalBazarCost = myBuyerInfo ? myBuyerInfo.totalAmount : 0;
+
+    return {
+      messId: mess._id.toString(),
+      messName: mess.name,
+      operatingMode: mess.operatingMode,
+      totalBazarCost,
+      totalEntries: entries.length,
+      myTotalBazarCost,
+      buyerBreakdown: Object.values(buyerMap),
+      entries,
+    };
   }
 
   /**
@@ -1885,7 +1987,7 @@ class MessService {
 
     // 1. Operating Mode update
     if (operatingMode) {
-      if (!['student_shared', 'dhaka_centralized'].includes(operatingMode)) {
+      if (!['student_shared', 'dhaka_centralized', 'bachelor_flat'].includes(operatingMode)) {
         const error = new Error('ভুল অপারেটিং মোড সিলেক্ট করা হয়েছে');
         error.statusCode = 400;
         throw error;

@@ -28,6 +28,17 @@ router.get('/', messController.getManagedMesses);
 router.post('/', messController.createMess);
 
 /**
+ * @route   POST /api/messes/bachelor-flat
+ * @desc    Create a Private Bachelor Flat (No public To-Let listing)
+ * @access  Protected
+ */
+router.post('/bachelor-flat', (req, res, next) => {
+  req.body = req.body || {};
+  req.body.operatingMode = 'bachelor_flat';
+  return messController.createMess(req, res, next);
+});
+
+/**
  * @route   POST /api/messes/leave
  * @desc    Leave current mess, vacate seat, and reset account to General Mode
  * @access  Protected
@@ -105,8 +116,16 @@ router.patch('/:messId/meals-per-day', messController.updateMealsPerDay);
 router.patch('/:messId/members/:memberId/toggle-slot', messController.toggleMemberSlot);
 
 /**
+ * @route   GET /api/messes/:messId/bazar
+ * @desc    Get all bazar entries, item lists, and buyer breakdowns for transparency
+ * @access  Protected
+ */
+router.get('/:messId/bazar', messController.getBazarEntries);
+router.get('/:messId/bazar-entries', messController.getBazarEntries);
+
+/**
  * @route   POST /api/messes/:messId/bazar
- * @desc    Add an itemized bazar entry & credit buyer's deposit
+ * @desc    Add an itemized bazar entry & credit buyer's deposit (in bachelor_flat mode)
  * @access  Protected
  */
 router.post('/:messId/bazar', messController.addBazarEntry);

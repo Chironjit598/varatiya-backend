@@ -85,3 +85,4 @@ paymentRecordSchema.index({ messId: 1, memberId: 1 });
 const PaymentRecord = mongoose.model('PaymentRecord', paymentRecordSchema);
 
 module.exports = PaymentRecord;
+

@@ -239,7 +239,7 @@ const managedMessSchema = new mongoose.Schema(
     },
     operatingMode: {
       type: String,
-      enum: ['student_shared', 'dhaka_centralized'],
+      enum: ['student_shared', 'dhaka_centralized', 'bachelor_flat'],
       default: 'dhaka_centralized',
     },
     bazarRoster: {
