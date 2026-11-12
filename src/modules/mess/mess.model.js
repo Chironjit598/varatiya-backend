@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const seatSchema = new mongoose.Schema(
   {
@@ -10,7 +10,7 @@ const seatSchema = new mongoose.Schema(
     bookedAt: { type: Date, default: null },
     rentAmount: { type: Number, default: null },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const roomSchema = new mongoose.Schema(
@@ -18,14 +18,14 @@ const roomSchema = new mongoose.Schema(
     id: { type: String, required: true },
     roomType: {
       type: String,
-      enum: ['single', 'two_bed', 'three_bed', 'four_bed', 'five_bed'],
-      default: 'single',
+      enum: ["single", "two_bed", "three_bed", "four_bed", "five_bed"],
+      default: "single",
     },
     roomNumber: { type: Number, required: true },
     roomName: { type: String, required: true },
     seats: { type: [seatSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const utilityBillSchema = new mongoose.Schema(
@@ -34,7 +34,7 @@ const utilityBillSchema = new mongoose.Schema(
     name: { type: String, required: true },
     amount: { type: Number, default: 0 },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const sharedBillSchema = new mongoose.Schema(
@@ -43,15 +43,15 @@ const sharedBillSchema = new mongoose.Schema(
     title: { type: String, required: true },
     category: {
       type: String,
-      enum: ['wifi', 'gas', 'water', 'electricity', 'maid', 'waste', 'other'],
-      default: 'other',
+      enum: ["wifi", "gas", "water", "electricity", "maid", "waste", "other"],
+      default: "other",
     },
     amount: { type: Number, required: true },
-    month: { type: String, default: 'নভেম্বর ২০২৬' },
+    month: { type: String, default: "নভেম্বর ২০২৬" },
     dateAdded: { type: Date, default: Date.now },
-    note: { type: String, default: '' },
+    note: { type: String, default: "" },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const noticeSchema = new mongoose.Schema(
@@ -59,11 +59,11 @@ const noticeSchema = new mongoose.Schema(
     id: { type: String, required: true },
     title: { type: String, required: true },
     message: { type: String, required: true },
-    postedBy: { type: String, default: 'মেস ম্যানেজার' },
+    postedBy: { type: String, default: "মেস ম্যানেজার" },
     postedAt: { type: Date, default: Date.now },
     isUrgent: { type: Boolean, default: false },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const messMemberSchema = new mongoose.Schema(
@@ -73,11 +73,11 @@ const messMemberSchema = new mongoose.Schema(
     phone: { type: String, required: true },
     role: {
       type: String,
-      default: 'border',
+      default: "border",
     },
     roles: {
       type: [String],
-      default: ['border'],
+      default: ["border"],
     },
     isAdmin: { type: Boolean, default: false },
     isManager: { type: Boolean, default: false },
@@ -89,79 +89,91 @@ const messMemberSchema = new mongoose.Schema(
     todayMealSlots: { type: [Boolean], default: [true, true] },
     customDateSlots: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const bazarRosterScheduleSchema = new mongoose.Schema(
   {
-    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    id: {
+      type: String,
+      default: () => new mongoose.Types.ObjectId().toString(),
+    },
     dayNumber: { type: Number, required: true, min: 1, max: 31 },
-    date: { type: String, default: '' }, // e.g. '2026-11-01'
+    date: { type: String, default: "" }, // e.g. '2026-11-01'
     memberIds: { type: [String], default: [] },
     memberNames: { type: [String], default: [] },
-    note: { type: String, default: '' },
+    note: { type: String, default: "" },
     isCompleted: { type: Boolean, default: false },
     notificationSent: { type: Boolean, default: false },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const bazarRosterSchema = new mongoose.Schema(
   {
-    month: { type: String, default: 'নভেম্বর ২০২৬' },
-    note: { type: String, default: '' },
+    month: { type: String, default: "নভেম্বর ২০২৬" },
+    note: { type: String, default: "" },
     schedule: { type: [bazarRosterScheduleSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const cleaningRosterScheduleSchema = new mongoose.Schema(
   {
-    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+    id: {
+      type: String,
+      default: () => new mongoose.Types.ObjectId().toString(),
+    },
     dayNumber: { type: Number, required: true, min: 1, max: 31 },
-    date: { type: String, default: '' }, // e.g. '2026-11-01'
+    date: { type: String, default: "" }, // e.g. '2026-11-01'
     memberIds: { type: [String], default: [] },
     memberNames: { type: [String], default: [] },
-    cleaningArea: { type: String, default: 'টয়লেট ও বেসিন' },
-    note: { type: String, default: '' },
+    cleaningArea: { type: String, default: "টয়লেট ও বেসিন" },
+    note: { type: String, default: "" },
     isCompleted: { type: Boolean, default: false },
     notificationSent: { type: Boolean, default: false },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const cleaningRosterSchema = new mongoose.Schema(
   {
-    month: { type: String, default: 'নভেম্বর ২০২৬' },
-    note: { type: String, default: '' },
+    month: { type: String, default: "নভেম্বর ২০২৬" },
+    note: { type: String, default: "" },
     schedule: { type: [cleaningRosterScheduleSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const developmentFundFeeSchema = new mongoose.Schema(
   {
-    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
-    memberId: { type: String, default: '' },
-    memberName: { type: String, default: '' },
+    id: {
+      type: String,
+      default: () => new mongoose.Types.ObjectId().toString(),
+    },
+    memberId: { type: String, default: "" },
+    memberName: { type: String, default: "" },
     amount: { type: Number, default: 0 },
-    month: { type: String, default: '' },
+    month: { type: String, default: "" },
     paidAt: { type: Date, default: Date.now },
-    note: { type: String, default: '' },
+    note: { type: String, default: "" },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const developmentFundExpenseSchema = new mongoose.Schema(
   {
-    id: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
-    title: { type: String, default: '' },
+    id: {
+      type: String,
+      default: () => new mongoose.Types.ObjectId().toString(),
+    },
+    title: { type: String, default: "" },
     amount: { type: Number, default: 0 },
     date: { type: Date, default: Date.now },
-    note: { type: String, default: '' },
-    recordedBy: { type: String, default: 'মেস কন্ট্রোলার' },
+    note: { type: String, default: "" },
+    recordedBy: { type: String, default: "মেস কন্ট্রোলার" },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const developmentFundSchema = new mongoose.Schema(
@@ -170,16 +182,16 @@ const developmentFundSchema = new mongoose.Schema(
     collections: { type: [developmentFundFeeSchema], default: [] },
     expenses: { type: [developmentFundExpenseSchema], default: [] },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const bazarItemSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    quantity: { type: String, default: '' },
+    quantity: { type: String, default: "" },
     price: { type: Number, default: 0 },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const bazarEntrySchema = new mongoose.Schema(
@@ -190,9 +202,9 @@ const bazarEntrySchema = new mongoose.Schema(
     date: { type: Date, default: Date.now },
     totalAmount: { type: Number, required: true },
     items: { type: [bazarItemSchema], default: [] },
-    note: { type: String, default: '' },
+    note: { type: String, default: "" },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const mealRequestSchema = new mongoose.Schema(
@@ -205,46 +217,46 @@ const mealRequestSchema = new mongoose.Schema(
     slotName: { type: String, required: true },
     status: {
       type: String,
-      enum: ['pending', 'approved', 'rejected'],
-      default: 'pending',
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
     },
-    note: { type: String, default: '' },
+    note: { type: String, default: "" },
     createdAt: { type: Date, default: Date.now },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const mealConfigSchema = new mongoose.Schema(
   {
-    messName: { type: String, default: '' },
+    messName: { type: String, default: "" },
     mealsPerDay: { type: Number, enum: [2, 3], default: 2 },
     slotNames: {
       type: [String],
-      default: ['দুপুর (Lunch)', 'রাত (Dinner)'],
+      default: ["দুপুর (Lunch)", "রাত (Dinner)"],
     },
-    managerId: { type: String, default: '' },
-    managerName: { type: String, default: '' },
-    currentMonth: { type: String, default: 'নভেম্বর ২০২৬' },
+    managerId: { type: String, default: "" },
+    managerName: { type: String, default: "" },
+    currentMonth: { type: String, default: "নভেম্বর ২০২৬" },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const managedMessSchema = new mongoose.Schema(
   {
     propertyId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Property',
+      ref: "Property",
       default: null,
       index: true,
     },
     operatingMode: {
       type: String,
-      enum: ['student_shared', 'dhaka_centralized', 'bachelor_flat'],
-      default: 'dhaka_centralized',
+      enum: ["student_shared", "dhaka_centralized", "bachelor_flat"],
+      default: "dhaka_centralized",
     },
     bazarRoster: {
       type: mongoose.Schema.Types.Mixed,
-      default: () => ({ month: 'নভেম্বর ২০২৬', note: '', schedule: [] }),
+      default: () => ({ month: "নভেম্বর ২০২৬", note: "", schedule: [] }),
     },
     bazarRosters: {
       type: [bazarRosterSchema],
@@ -252,7 +264,7 @@ const managedMessSchema = new mongoose.Schema(
     },
     cleaningRoster: {
       type: mongoose.Schema.Types.Mixed,
-      default: () => ({ month: 'নভেম্বর ২০২৬', note: '', schedule: [] }),
+      default: () => ({ month: "নভেম্বর ২০২৬", note: "", schedule: [] }),
     },
     cleaningRosters: {
       type: [cleaningRosterSchema],
@@ -268,17 +280,17 @@ const managedMessSchema = new mongoose.Schema(
     },
     name: {
       type: String,
-      required: [true, 'মেসের নাম আবশ্যক'],
+      required: [true, "মেসের নাম আবশ্যক"],
       trim: true,
     },
     address: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
     },
     area: {
       type: String,
-      default: '',
+      default: "",
       trim: true,
       index: true,
     },
@@ -293,11 +305,11 @@ const managedMessSchema = new mongoose.Schema(
     },
     managerName: {
       type: String,
-      default: '',
+      default: "",
     },
     managerPhone: {
       type: String,
-      default: '',
+      default: "",
     },
     defaultSeatRent: {
       type: Number,
@@ -322,17 +334,17 @@ const managedMessSchema = new mongoose.Schema(
     mealConfig: {
       type: mealConfigSchema,
       default: () => ({
-        messName: '',
+        messName: "",
         mealsPerDay: 2,
-        managerId: '',
-        managerName: '',
-        currentMonth: 'নভেম্বর ২০২৬',
+        managerId: "",
+        managerName: "",
+        currentMonth: "নভেম্বর ২০২৬",
       }),
     },
   },
   {
     timestamps: true,
-    collection: 'managed_messes',
+    collection: "managed_messes",
     toJSON: {
       transform: function (doc, ret) {
         ret.id = ret._id ? ret._id.toString() : undefined;
@@ -347,10 +359,9 @@ const managedMessSchema = new mongoose.Schema(
         return ret;
       },
     },
-  }
+  },
 );
 
-const ManagedMess = mongoose.model('ManagedMess', managedMessSchema);
+const ManagedMess = mongoose.model("ManagedMess", managedMessSchema);
 
 module.exports = ManagedMess;
-
