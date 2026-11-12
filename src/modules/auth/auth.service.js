@@ -90,8 +90,8 @@ class AuthService {
     } else if (phoneNumber) {
       const message =
         purpose === 'REGISTRATION'
-          ? `Your Varatia registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
-          : `Your Varatia password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
+          ? `Your BashaBondhu registration verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`
+          : `Your BashaBondhu password reset verification code is ${rawOtp}. Valid for ${env.OTP_EXPIRY_MINUTES} minutes.`;
 
       sendSMS({ phoneNumber, message, otp: rawOtp }).catch((err) =>
         console.error(`[SMS Send Error]: ${err.message}`)

@@ -55,7 +55,7 @@ app.use(generalRateLimiter);
 app.get(['/health', '/healthz'], (req, res) => {
   return ApiResponse.success(res, {
     statusCode: 200,
-    message: 'Varatia Backend API is healthy and operational',
+    message: 'BashaBondhu Backend API is healthy and operational',
     data: {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
@@ -68,7 +68,7 @@ app.get(['/health', '/healthz'], (req, res) => {
 app.get('/', (req, res) => {
   return ApiResponse.success(res, {
     statusCode: 200,
-    message: 'Welcome to Varatia (House Rental & Mess Management) API',
+    message: 'Welcome to BashaBondhu (House Rental & Mess Management) API',
     data: {
       health: '/health',
       auth: '/api/auth',
