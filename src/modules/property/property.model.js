@@ -105,13 +105,29 @@ const propertySchema = new mongoose.Schema(
     },
     rentPrice: {
       type: Number,
-      required: [true, 'ভাড়ার পরিমাণ দিন'],
-      min: [100, 'ভাড়া কমপক্ষে ১০০ টাকা হতে হবে'],
+      required: false,
+      default: 0,
+      min: [0, 'ভাড়ার পরিমাণ ০ বা তার বেশি হতে হবে'],
       index: true,
     },
     isNegotiable: {
       type: Boolean,
       default: false,
+      index: true,
+    },
+    displayPrice: {
+      type: String,
+      default: '',
+    },
+    isDefaultBanner: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    defaultBannerType: {
+      type: String,
+      enum: ['entire_house', 'mess', 'single_room', null],
+      default: null,
     },
     tenantType: {
       type: String,
@@ -253,6 +269,13 @@ const propertySchema = new mongoose.Schema(
     toJSON: {
       transform: function (doc, ret) {
         ret.id = ret._id ? ret._id.toString() : undefined;
+        if (ret.isNegotiable || Number(ret.rentPrice) <= 0) {
+          ret.displayPrice = 'আলোচনা সাপেক্ষে';
+        } else if (ret.isMess) {
+          ret.displayPrice = `৳ ${Number(ret.rentPrice).toLocaleString('en-US')} থেকে শুরু`;
+        } else {
+          ret.displayPrice = `৳ ${Number(ret.rentPrice).toLocaleString('en-US')} / মাস`;
+        }
         delete ret.__v;
         return ret;
       },
@@ -260,12 +283,31 @@ const propertySchema = new mongoose.Schema(
     toObject: {
       transform: function (doc, ret) {
         ret.id = ret._id ? ret._id.toString() : undefined;
+        if (ret.isNegotiable || Number(ret.rentPrice) <= 0) {
+          ret.displayPrice = 'আলোচনা সাপেক্ষে';
+        } else if (ret.isMess) {
+          ret.displayPrice = `৳ ${Number(ret.rentPrice).toLocaleString('en-US')} থেকে শুরু`;
+        } else {
+          ret.displayPrice = `৳ ${Number(ret.rentPrice).toLocaleString('en-US')} / মাস`;
+        }
         delete ret.__v;
         return ret;
       },
     },
   }
 );
+
+// Pre-save hook to ensure displayPrice is synchronized
+propertySchema.pre('save', function (next) {
+  if (this.isNegotiable || Number(this.rentPrice) <= 0) {
+    this.displayPrice = 'আলোচনা সাপেক্ষে';
+  } else if (this.isMess) {
+    this.displayPrice = `৳ ${Number(this.rentPrice).toLocaleString('en-US')} থেকে শুরু`;
+  } else {
+    this.displayPrice = `৳ ${Number(this.rentPrice).toLocaleString('en-US')} / মাস`;
+  }
+  next();
+});
 
 // Compound index for fast multi-filter search
 propertySchema.index({ area: 1, subArea: 1, rentPrice: 1, tenantType: 1, isMess: 1, isActive: 1 });

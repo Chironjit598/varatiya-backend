@@ -1,8 +1,16 @@
 const mongoose = require('mongoose');
 const ApiResponse = require('../../utils/apiResponse');
 
-const DEFAULT_PROPERTY_IMAGE =
-  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80';
+const DEFAULT_BANNERS = {
+  entire_house:
+    'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?w=1080&auto=format&fit=crop&q=80',
+  mess:
+    'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?w=1080&auto=format&fit=crop&q=80',
+  single_room:
+    'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=1080&auto=format&fit=crop&q=80',
+};
+
+const DEFAULT_PROPERTY_IMAGE = DEFAULT_BANNERS.entire_house;
 
 /**
  * Validate MongoDB ObjectId parameter
@@ -116,13 +124,31 @@ const validateCreateProperty = (req, res, next) => {
     req.body.detailedAddress = req.body.subArea || req.body.area || 'Address not specified';
   }
 
-  if (
-    rentPrice === undefined ||
-    rentPrice === null ||
-    isNaN(Number(rentPrice)) ||
-    Number(rentPrice) < 100
-  ) {
-    errors.push('ভাড়ার পরিমাণ সঠিক হতে হবে');
+  const isNegotiable =
+    req.body.isNegotiable === true ||
+    req.body.isNegotiable === 'true' ||
+    req.body.isNegotiable === 1 ||
+    req.body.isNegotiable === '1';
+  req.body.isNegotiable = isNegotiable;
+
+  if (!isNegotiable) {
+    if (
+      rentPrice === undefined ||
+      rentPrice === null ||
+      rentPrice === '' ||
+      isNaN(Number(rentPrice)) ||
+      Number(rentPrice) < 100
+    ) {
+      errors.push(
+        isMess
+          ? 'মেসের ক্ষেত্রে সর্বনিম্ন সিট ভাড়া উল্লেখ করুন অথবা "আলোচনা সাপেক্ষে" নির্বাচন করুন'
+          : 'ভাড়ার পরিমাণ সঠিক হতে হবে (অথবা "আলোচনা সাপেক্ষে" নির্বাচন করুন)'
+      );
+    } else {
+      req.body.rentPrice = Number(rentPrice);
+    }
+  } else {
+    req.body.rentPrice = rentPrice !== undefined && !isNaN(Number(rentPrice)) ? Math.max(0, Number(rentPrice)) : 0;
   }
 
   // Normalize tenantType & tenantTypes
@@ -148,8 +174,20 @@ const validateCreateProperty = (req, res, next) => {
     req.body.availableMonth = 'চলতি মাস থেকে';
   }
 
+  // Determine appropriate To-Let banner if no user images are uploaded
+  let defaultBannerType = 'entire_house';
+  if (isMess) {
+    defaultBannerType = 'mess';
+  } else if (req.body.rentType === 'single_room') {
+    defaultBannerType = 'single_room';
+  }
+  req.body.defaultBannerType = defaultBannerType;
+
   if (!req.body.imageUrls || !Array.isArray(req.body.imageUrls) || req.body.imageUrls.length === 0) {
-    req.body.imageUrls = [DEFAULT_PROPERTY_IMAGE];
+    req.body.imageUrls = [DEFAULT_BANNERS[defaultBannerType]];
+    req.body.isDefaultBanner = true;
+  } else {
+    req.body.isDefaultBanner = false;
   }
 
   if (
@@ -199,8 +237,20 @@ const validateUpdateProperty = (req, res, next) => {
     errors.push('শিরোনাম সর্বোচ্চ ১৬০ অক্ষরের হতে পারে');
   }
 
-  if (rentPrice !== undefined && (isNaN(Number(rentPrice)) || Number(rentPrice) < 100)) {
-    errors.push('ভাড়ার পরিমাণ সঠিক হতে হবে');
+  if (req.body.isNegotiable !== undefined) {
+    req.body.isNegotiable =
+      req.body.isNegotiable === true ||
+      req.body.isNegotiable === 'true' ||
+      req.body.isNegotiable === 1 ||
+      req.body.isNegotiable === '1';
+  }
+
+  if (req.body.isNegotiable === false) {
+    if (rentPrice !== undefined && (isNaN(Number(rentPrice)) || Number(rentPrice) < 100)) {
+      errors.push('ভাড়ার পরিমাণ সঠিক হতে হবে');
+    }
+  } else if (req.body.isNegotiable === true && rentPrice !== undefined) {
+    req.body.rentPrice = !isNaN(Number(rentPrice)) ? Math.max(0, Number(rentPrice)) : 0;
   }
 
   if (

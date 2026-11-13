@@ -24,6 +24,19 @@ class PropertyService {
       obj.locationTier = Number(doc.locationTier);
       obj.isNearby = obj.locationTier <= 2;
     }
+
+    // Format displayPrice
+    if (obj.isNegotiable || Number(obj.rentPrice) <= 0) {
+      obj.displayPrice = 'আলোচনা সাপেক্ষে';
+    } else if (obj.isMess) {
+      obj.displayPrice = `৳ ${Number(obj.rentPrice).toLocaleString('en-US')} থেকে শুরু`;
+    } else {
+      obj.displayPrice = `৳ ${Number(obj.rentPrice).toLocaleString('en-US')} / মাস`;
+    }
+
+    obj.isDefaultBanner = Boolean(obj.isDefaultBanner);
+    obj.defaultBannerType = obj.defaultBannerType || null;
+
     return obj;
   }
 
@@ -177,6 +190,8 @@ class PropertyService {
 
       availableMonth: availableMonth.trim(),
       imageUrls: Array.isArray(imageUrls) ? imageUrls : [imageUrls],
+      isDefaultBanner: Boolean(payload.isDefaultBanner),
+      defaultBannerType: payload.defaultBannerType || null,
       amenities: Array.isArray(amenities) ? amenities : [],
       contactPhone: resolvedContactPhone,
       landlordName: resolvedLandlordName,
