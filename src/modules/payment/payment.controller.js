@@ -92,6 +92,41 @@ class PaymentController {
       next(error);
     }
   }
+
+  /**
+   * GET/POST /api/payments/mode?set=review (or set=live)
+   * Switch between Google Review Mode and Live Production Mode in 1 second
+   */
+  async getOrSetMode(req, res, next) {
+    try {
+      const setParam = req.query.set || req.body?.mode;
+      if (setParam) {
+        const updated = paymentService.setAppMode(setParam);
+        return ApiResponse.success(res, {
+          statusCode: 200,
+          message:
+            updated === 'REVIEW'
+              ? '✅ Google Review Mode সক্রিয়: সব পে-ওয়াল ও লিমিট বন্ধ (সম্পূর্ণ ফ্রি)'
+              : '⚡ Live Production Mode সক্রিয়: ৫০ টাকার পে-ওয়াল ও লিমিট চালু',
+          data: {
+            mode: updated,
+            isPaymentEnabled: paymentService.isPaymentEnabled(),
+          },
+        });
+      }
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'Current payment mode fetched',
+        data: {
+          mode: paymentService.getAppMode(),
+          isPaymentEnabled: paymentService.isPaymentEnabled(),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new PaymentController();

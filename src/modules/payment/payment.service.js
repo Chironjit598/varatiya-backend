@@ -5,7 +5,36 @@ const User = require('../auth/user.model');
 const IncomingSms = require('./incomingSms.model');
 const PendingVerification = require('./pendingVerification.model');
 
+// 'LIVE' = 50 Tk paywall enabled for users; 'REVIEW' = Google Review Mode (free, zero paywalls)
+let currentAppMode = process.env.APP_MODE || (process.env.IS_REVIEW_MODE === 'true' ? 'REVIEW' : 'LIVE');
+
 class PaymentService {
+  /**
+   * Check if payment / paywall is enabled
+   */
+  isPaymentEnabled() {
+    return currentAppMode === 'LIVE';
+  }
+
+  /**
+   * Get current operational mode
+   */
+  getAppMode() {
+    return currentAppMode;
+  }
+
+  /**
+   * Dynamically switch mode between 'LIVE' and 'REVIEW'
+   */
+  setAppMode(mode) {
+    const normalized = String(mode).toUpperCase();
+    if (normalized === 'REVIEW') {
+      currentAppMode = 'REVIEW';
+    } else {
+      currentAppMode = 'LIVE';
+    }
+    return currentAppMode;
+  }
   /**
    * Get current Month-Year string, e.g. "2026-11"
    */
@@ -466,7 +495,8 @@ class PaymentService {
     const monthYear = this.getCurrentMonthYear(now);
 
     return {
-      isPaymentEnabled: true,
+      mode: this.getAppMode(),
+      isPaymentEnabled: this.isPaymentEnabled(),
       feeAmount: Number(env.CONNECTION_FEE) || 50,
       currency: 'BDT',
       currencySymbol: '৳',

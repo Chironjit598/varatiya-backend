@@ -31,5 +31,13 @@ router.get('/poll-status', paymentController.pollStatus.bind(paymentController))
  */
 router.get('/config', paymentController.getConfig.bind(paymentController));
 
+/**
+ * @route   GET/POST /api/payments/mode
+ * @desc    Toggle between Google Review Mode (free, zero paywalls) and Live Mode
+ * @access  Public
+ */
+router.get('/mode', paymentController.getOrSetMode.bind(paymentController));
+router.post('/mode', paymentController.getOrSetMode.bind(paymentController));
+
 module.exports = router;
 

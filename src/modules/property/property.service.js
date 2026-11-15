@@ -1065,6 +1065,21 @@ class PropertyService {
     const resolvedPhone = property.contactPhone || property.landlordPhone || '';
     const currentMonthYear = paymentService.getCurrentMonthYear();
 
+    // 0. If in Google Review Mode: completely free, unlimited access, zero paywall
+    if (!paymentService.isPaymentEnabled()) {
+      return {
+        unlocked: true,
+        isPaid: true,
+        isAlreadyUnlocked: true,
+        isPaymentEnabled: false,
+        contactPhone: resolvedPhone,
+        landlordName: property.landlordName || 'বাড়িওয়ালা',
+        remaining: 999,
+        limitReached: false,
+        message: 'Google Review Mode - সম্পূর্ণ ফ্রি এক্সেস',
+      };
+    }
+
     // 1. If user is logged in and paid for this month: UNLIMITED access
     if (user && user.isPaid && user.paidMonth === currentMonthYear) {
       return {
