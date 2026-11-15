@@ -198,10 +198,19 @@ class PaymentService {
       throw error;
     }
 
-    // Allow manual/parsed overrides if provided
-    if (senderPhoneOverride) parsed.senderNumber = this.normalizePhoneNumber(senderPhoneOverride);
-    if (amountOverride) parsed.amount = parseFloat(amountOverride);
-    if (trxIdOverride) parsed.trxId = String(trxIdOverride).trim();
+    // Allow manual/parsed overrides only if it is a valid 11-digit mobile number
+    if (senderPhoneOverride) {
+      const normalizedOverride = this.normalizePhoneNumber(senderPhoneOverride);
+      if (normalizedOverride && normalizedOverride.length === 11 && normalizedOverride.startsWith('01')) {
+        parsed.senderNumber = normalizedOverride;
+      }
+    }
+    if (amountOverride && !isNaN(parseFloat(amountOverride))) {
+      parsed.amount = parseFloat(amountOverride);
+    }
+    if (trxIdOverride && String(trxIdOverride).trim()) {
+      parsed.trxId = String(trxIdOverride).trim();
+    }
 
     if (!parsed.senderNumber) {
       const error = new Error('এসএমএস থেকে প্রেরকের ফোন নম্বর পাওয়া যায়নি');
