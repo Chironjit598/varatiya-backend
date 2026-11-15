@@ -151,16 +151,41 @@ class PropertyController {
   }
 
   /**
-   * Report Property (e.g. Already Rented Out) (Protected)
+   * Report Property (e.g. Already Rented Out) (Optional Auth / Device based)
    * POST /api/properties/:id/report
    */
   async reportProperty(req, res, next) {
     try {
+      const userId = req.user ? req.user._id : null;
+      const deviceId = req.headers['x-device-id'] || req.body.deviceId || null;
+      const payload = { ...req.body, deviceId };
+
       const result = await propertyService.reportProperty(
         req.params.id,
-        req.user._id,
-        req.body
+        userId,
+        payload
       );
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * View / Unlock Contact Phone (3 free per device per month)
+   * POST /api/properties/:id/view-contact
+   */
+  async viewContact(req, res, next) {
+    try {
+      const user = req.user || null;
+      const deviceId = req.headers['x-device-id'] || req.body.deviceId || null;
+
+      const result = await propertyService.viewContact(req.params.id, user, deviceId);
 
       return ApiResponse.success(res, {
         statusCode: 200,

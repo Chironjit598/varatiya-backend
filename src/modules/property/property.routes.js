@@ -122,13 +122,25 @@ router.put(
 /**
  * @route   POST /api/properties/:id/report
  * @desc    Report property as already rented out, wrong number, etc. (Auto-pauses if >= 2 reports)
- * @access  Protected
+ * @access  Optional Auth / Device based
  */
 router.post(
   '/:id/report',
-  protect,
+  optionalAuthenticate,
   validateObjectId,
   propertyController.reportProperty.bind(propertyController)
+);
+
+/**
+ * @route   POST /api/properties/:id/view-contact
+ * @desc    Unlock and view landlord contact phone (3 free per device per month)
+ * @access  Optional Auth / Device based
+ */
+router.post(
+  '/:id/view-contact',
+  optionalAuthenticate,
+  validateObjectId,
+  propertyController.viewContact.bind(propertyController)
 );
 
 /**

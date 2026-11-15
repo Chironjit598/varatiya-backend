@@ -66,6 +66,29 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    isPaid: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    paidMonth: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    paidUntil: {
+      type: Date,
+      default: null,
+    },
+    hasEmailLinked: {
+      type: Boolean,
+      default: false,
+    },
+    authProvider: {
+      type: String,
+      enum: ['standard', 'phone_auto', 'google'],
+      default: 'standard',
+    },
     lastActiveAt: {
       type: Date,
       default: Date.now,

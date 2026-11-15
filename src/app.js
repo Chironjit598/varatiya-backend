@@ -12,6 +12,7 @@ const familyExpenseRoutes = require('./modules/family-expense/familyExpense.rout
 const alertRoutes = require('./modules/alert/alert.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
 const uploadRoutes = require('./modules/upload/upload.routes');
+const paymentRoutes = require('./modules/payment/payment.routes');
 const { notFoundHandler, errorHandler } = require('./middlewares/error.middleware');
 const { generalRateLimiter } = require('./middlewares/rateLimiter');
 const ApiResponse = require('./utils/apiResponse');
@@ -26,7 +27,7 @@ const corsOptions = {
   origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((o) => o.trim()),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Device-Id', 'X-Gateway-Secret'],
 };
 app.use(cors(corsOptions));
 
@@ -96,6 +97,7 @@ app.use('/api/family-expenses', familyExpenseRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // Catch 404 and forward to error handler
 app.use(notFoundHandler);

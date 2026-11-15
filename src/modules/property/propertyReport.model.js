@@ -11,7 +11,12 @@ const propertyReportSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      default: null,
+      index: true,
+    },
+    deviceId: {
+      type: String,
+      default: null,
       index: true,
     },
     reason: {
@@ -56,8 +61,9 @@ const propertyReportSchema = new mongoose.Schema(
   }
 );
 
-// Prevent duplicate active reports by the same user on the same property
-propertyReportSchema.index({ propertyId: 1, userId: 1, status: 1 });
+// Prevent duplicate active reports by the same user or device on the same property
+propertyReportSchema.index({ propertyId: 1, userId: 1, status: 1 }, { sparse: true });
+propertyReportSchema.index({ propertyId: 1, deviceId: 1, status: 1 }, { sparse: true });
 
 const PropertyReport = mongoose.model('PropertyReport', propertyReportSchema);
 

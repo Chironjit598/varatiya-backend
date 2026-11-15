@@ -115,6 +115,44 @@ class AuthService {
     // Check if phone already registered
     let existingUser = await User.findOne({ phoneNumber: cleanPhone });
     if (existingUser) {
+      // If user was auto-generated from payment and has no email linked yet, allow upgrading!
+      if (!existingUser.email || !existingUser.hasEmailLinked || existingUser.authProvider === 'phone_auto') {
+        if (cleanEmail) {
+          const emailCheck = await User.findOne({ email: cleanEmail, _id: { $ne: existingUser._id } });
+          if (emailCheck) {
+            const error = new Error('এই ইমেইল দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা আছে। (An account with this email already exists)');
+            error.statusCode = 400;
+            throw error;
+          }
+        }
+
+        existingUser.name = name.trim();
+        existingUser.email = cleanEmail;
+        existingUser.password = password; // Hashed by pre-save
+        if (role) existingUser.role = role;
+        existingUser.hasEmailLinked = Boolean(cleanEmail);
+        existingUser.authProvider = 'standard';
+        await existingUser.save();
+
+        const otpResult = await this.createAndSendOtp({
+          email: cleanEmail,
+          phoneNumber: cleanPhone,
+          purpose: 'REGISTRATION',
+        });
+        const tokens = this.generateTokens(existingUser);
+
+        return {
+          user: existingUser.toJSON(),
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          name: existingUser.name,
+          otpSent: otpResult.sent,
+          deliveryChannel: otpResult.channel,
+          isAccountUpgrade: true,
+          message: 'আপনার পূর্ববর্তী পেইড অ্যাকাউন্টটিতে ইমেইল ও নতুন পাসওয়ার্ড যুক্ত করা হয়েছে!',
+        };
+      }
+
       const error = new Error('এই মোবাইল নম্বর দিয়ে ইতিমধ্যে একটি অ্যাকাউন্ট খোলা আছে। অনুগ্রহ করে লগইন করুন। (An account with this phone number already exists)');
       error.statusCode = 400;
       throw error;
@@ -419,9 +457,18 @@ class AuthService {
     const user = await User.findOne(query).lean();
 
     if (!user) {
-      const error = new Error('No user account found with this email or phone number.');
+      const error = new Error('এই তথ্য দিয়ে কোনো অ্যাকাউন্ট পাওয়া যায়নি। (No user account found)');
       error.statusCode = 404;
       throw error;
+    }
+
+    // Smart Auto-Account check: If user account has no email linked yet
+    if (!user.email && !email) {
+      return {
+        needsEmail: true,
+        phoneNumber: user.phoneNumber,
+        message: 'আপনার অ্যাকাউন্টে কোনো ইমেইল যুক্ত নেই। ভেরিফিকেশন ও পাসওয়ার্ড রিসেটের জন্য আপনার একটি ইমেইল দিন।',
+      };
     }
 
     const targetEmail = email || user.email;
@@ -473,8 +520,11 @@ class AuthService {
       throw error;
     }
 
-    const userQuery = cleanEmail ? { email: cleanEmail } : { phoneNumber: cleanPhone };
-    const user = await User.findOne(userQuery);
+    const userQuery = cleanPhone ? { phoneNumber: cleanPhone } : { email: cleanEmail };
+    let user = await User.findOne(userQuery);
+    if (!user && cleanEmail) {
+      user = await User.findOne({ email: cleanEmail });
+    }
     if (!user) {
       const error = new Error('User account not found.');
       error.statusCode = 404;
@@ -483,11 +533,17 @@ class AuthService {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(newPassword, salt);
-    await User.findByIdAndUpdate(user._id, {
+    const updatePayload = {
       password: hashedPassword,
       isEmailVerified: true,
       isPhoneVerified: true,
-    });
+    };
+    if (!user.email && cleanEmail) {
+      updatePayload.email = cleanEmail;
+      updatePayload.hasEmailLinked = true;
+    }
+
+    await User.findByIdAndUpdate(user._id, updatePayload);
 
     // Invalidate OTPs
     await OTP.deleteMany(cleanEmail ? { email: cleanEmail, purpose: 'FORGOT_PASSWORD' } : { phoneNumber: cleanPhone, purpose: 'FORGOT_PASSWORD' });

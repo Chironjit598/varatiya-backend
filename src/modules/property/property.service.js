@@ -1,5 +1,7 @@
 const Property = require('./property.model');
 const PropertyReport = require('./propertyReport.model');
+const GuestDeviceTracking = require('./guestDeviceTracking.model');
+const paymentService = require('../payment/payment.service');
 const ManagedMess = require('../mess/mess.model');
 const alertService = require('../alert/alert.service');
 const notificationService = require('../notification/notification.service');
@@ -952,7 +954,7 @@ class PropertyService {
    * Report a property (e.g., 'ALREADY_RENTED', 'WRONG_NUMBER', etc.)
    * Triggers automatic pause if 2 unique users report ALREADY_RENTED
    */
-  async reportProperty(propertyId, userId, payload = {}) {
+  async reportProperty(propertyId, userId = null, payload = {}) {
     const property = await Property.findById(propertyId);
     if (!property) {
       const error = new Error('বিজ্ঞাপনটি পাওয়া যায়নি');
@@ -960,18 +962,26 @@ class PropertyService {
       throw error;
     }
 
-    if (property.owner.toString() === userId.toString()) {
+    const deviceId = payload.deviceId || null;
+
+    if (userId && property.owner.toString() === userId.toString()) {
       const error = new Error('নিজের বিজ্ঞাপনে রিপোর্ট করা যাবে না');
       error.statusCode = 400;
       throw error;
     }
 
-    // Check if user already submitted an active report for this property
-    const existingReport = await PropertyReport.findOne({
+    // Check if user or device already submitted an active report for this property
+    const query = {
       propertyId: property._id,
-      userId,
       status: 'ACTIVE',
-    });
+    };
+    if (userId) {
+      query.userId = userId;
+    } else if (deviceId) {
+      query.deviceId = deviceId;
+    }
+
+    const existingReport = await PropertyReport.findOne(query);
 
     if (existingReport) {
       const error = new Error('আপনি ইতোমধ্যে এই বিজ্ঞাপনে রিপোর্ট করেছেন। ধন্যবাদ!');
@@ -984,7 +994,8 @@ class PropertyService {
 
     const report = await PropertyReport.create({
       propertyId: property._id,
-      userId,
+      userId: userId || null,
+      deviceId: deviceId || null,
       reason,
       note,
       status: 'ACTIVE',
@@ -1037,6 +1048,109 @@ class PropertyService {
       message: autoPaused
         ? '২টি রিপোর্টের কারণে বিজ্ঞাপনটি সাময়িকভাবে বন্ধ করা হয়েছে এবং মালিককে জানানো হয়েছে।'
         : 'আপনার রিপোর্ট সফলভাবে জমা নেওয়া হয়েছে। ধন্যবাদ!',
+    };
+  }
+
+  /**
+   * Unlock & view contact phone (3 free per device per month for guests, unlimited for paid)
+   */
+  async viewContact(propertyId, user = null, deviceId = null) {
+    const property = await Property.findById(propertyId);
+    if (!property) {
+      const error = new Error('বিজ্ঞাপনটি পাওয়া যায়নি');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const resolvedPhone = property.contactPhone || property.landlordPhone || '';
+    const currentMonthYear = paymentService.getCurrentMonthYear();
+
+    // 1. If user is logged in and paid for this month: UNLIMITED access
+    if (user && user.isPaid && user.paidMonth === currentMonthYear) {
+      return {
+        unlocked: true,
+        isPaid: true,
+        isAlreadyUnlocked: true,
+        contactPhone: resolvedPhone,
+        landlordName: property.landlordName || 'বাড়িওয়ালা',
+        remaining: 999,
+        limitReached: false,
+        message: 'চলতি মাসের কানেকশন সক্রিয় আছে',
+      };
+    }
+
+    // 2. Free / Guest user quota check using deviceId or user id
+    const identifier = deviceId || (user ? String(user._id || user.id) : null);
+    if (!identifier) {
+      const error = new Error('ডিভাইস আইডি পাওয়া যায়নি');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    let tracking = await GuestDeviceTracking.findOne({
+      deviceId: identifier,
+      monthYear: currentMonthYear,
+    });
+
+    if (!tracking) {
+      tracking = await GuestDeviceTracking.create({
+        deviceId: identifier,
+        monthYear: currentMonthYear,
+        viewedPropertyIds: [],
+        count: 0,
+      });
+    }
+
+    const maxLimit = 3;
+
+    // Check if this property was already viewed by this device this month
+    const alreadyViewed = tracking.viewedPropertyIds.some(
+      (id) => id.toString() === property._id.toString()
+    );
+
+    if (alreadyViewed) {
+      return {
+        unlocked: true,
+        isAlreadyUnlocked: true,
+        isPaid: false,
+        contactPhone: resolvedPhone,
+        landlordName: property.landlordName || 'বাড়িওয়ালা',
+        remaining: Math.max(0, maxLimit - tracking.count),
+        limitReached: false,
+        message: 'এই বাসার নম্বর আপনি ইতোমধ্যেই দেখেছেন',
+      };
+    }
+
+    // Quota exhausted
+    if (tracking.count >= maxLimit) {
+      return {
+        unlocked: false,
+        isPaid: false,
+        limitReached: true,
+        remaining: 0,
+        contactPhone: null,
+        message: `আপনার এই মাসের ৩টি ফ্রি নম্বর দেখার সুযোগ শেষ হয়েছে! পুরো মাস আনলিমিটেড দেখতে মাত্র ৫০ টাকার কানেকশন চার্জ দিন।`,
+        currentMonthName: paymentService.getBengaliMonthName(),
+      };
+    }
+
+    // Count this unlock
+    tracking.viewedPropertyIds.push(property._id);
+    tracking.count = tracking.viewedPropertyIds.length;
+    tracking.lastViewedAt = new Date();
+    await tracking.save();
+
+    const remaining = Math.max(0, maxLimit - tracking.count);
+
+    return {
+      unlocked: true,
+      isAlreadyUnlocked: false,
+      isPaid: false,
+      contactPhone: resolvedPhone,
+      landlordName: property.landlordName || 'বাড়িওয়ালা',
+      remaining,
+      limitReached: false,
+      message: `নম্বর আনলক হয়েছে! এই মাসে আপনার আর ${remaining}টি ফ্রি নম্বর দেখার সুযোগ বাকি আছে।`,
     };
   }
 
