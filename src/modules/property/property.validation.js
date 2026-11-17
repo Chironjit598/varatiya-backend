@@ -13,11 +13,12 @@ const DEFAULT_BANNERS = {
 const DEFAULT_PROPERTY_IMAGE = DEFAULT_BANNERS.entire_house;
 
 /**
- * Validate MongoDB ObjectId parameter
+ * Validate MongoDB ObjectId or 6-digit Property Code parameter
  */
 const validateObjectId = (req, res, next) => {
   const { id } = req.params;
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+  const cleanId = String(id || '').trim();
+  if (!cleanId || (!mongoose.Types.ObjectId.isValid(cleanId) && !/^\d{6}$/.test(cleanId))) {
     return ApiResponse.error(res, {
       statusCode: 400,
       message: 'অবৈধ বিজ্ঞাপন আইডি (Invalid Property ID)',

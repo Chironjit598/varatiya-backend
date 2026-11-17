@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Property = require('./property.model');
 const PropertyReport = require('./propertyReport.model');
 const GuestDeviceTracking = require('./guestDeviceTracking.model');
@@ -64,6 +65,7 @@ class PropertyService {
       tenantTypes,
       rentType,
       maxOccupants,
+      description,
       isMess,
       singleBedRooms,
       twoBedRooms,
@@ -173,6 +175,7 @@ class PropertyService {
           ? rentType
           : 'entire_house',
       maxOccupants: maxOccupants !== undefined ? Number(maxOccupants) : 1,
+      description: description ? description.trim() : (payload.description ? payload.description.trim() : ''),
 
       isMess: isMessFlag,
       singleBedRooms: roomCounts.singleBedRooms,
@@ -334,18 +337,23 @@ class PropertyService {
 
     // Text search or regex match
     if (queryParams.search && queryParams.search.trim().length > 0) {
-      const escapedSearch = queryParams.search
-        .trim()
-        .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const trimmedSearch = queryParams.search.trim();
+      const escapedSearch = trimmedSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const searchRegex = new RegExp(escapedSearch, 'i');
+      const orConditions = [
+        { propertyCode: searchRegex },
+        { title: searchRegex },
+        { buildingName: searchRegex },
+        { detailedAddress: searchRegex },
+        { area: searchRegex },
+        { subArea: searchRegex },
+        { description: searchRegex },
+      ];
+      if (/^\d{6}$/.test(trimmedSearch)) {
+        orConditions.unshift({ propertyCode: trimmedSearch });
+      }
       andConditions.push({
-        $or: [
-          { title: searchRegex },
-          { buildingName: searchRegex },
-          { detailedAddress: searchRegex },
-          { area: searchRegex },
-          { subArea: searchRegex },
-        ],
+        $or: orConditions,
       });
     }
 
@@ -616,12 +624,29 @@ class PropertyService {
   }
 
   /**
-   * Get single property details by ID (Public)
+   * Get single property details by ID or 6-digit Post Code (Public)
    */
   async getPropertyById(id) {
-    const property = await Property.findById(id)
-      .populate('owner', 'name phoneNumber avatar isPhoneVerified createdAt')
-      .lean();
+    const cleanId = String(id).trim();
+    let property = null;
+
+    if (cleanId.length === 6 && /^\d{6}$/.test(cleanId)) {
+      property = await Property.findOne({ propertyCode: cleanId })
+        .populate('owner', 'name phoneNumber avatar isPhoneVerified createdAt')
+        .lean();
+    }
+
+    if (!property && mongoose.Types.ObjectId.isValid(cleanId)) {
+      property = await Property.findById(cleanId)
+        .populate('owner', 'name phoneNumber avatar isPhoneVerified createdAt')
+        .lean();
+    }
+
+    if (!property) {
+      property = await Property.findOne({ propertyCode: cleanId })
+        .populate('owner', 'name phoneNumber avatar isPhoneVerified createdAt')
+        .lean();
+    }
 
     if (!property) {
       const error = new Error('বিজ্ঞাপনটি পাওয়া যায়নি (Property not found)');
@@ -730,6 +755,7 @@ class PropertyService {
       'tenantTypes',
       'rentType',
       'maxOccupants',
+      'description',
       'availableMonth',
       'imageUrls',
       'amenities',

@@ -39,6 +39,13 @@ const utilityBillSchema = new mongoose.Schema(
 
 const propertySchema = new mongoose.Schema(
   {
+    propertyCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+      trim: true,
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -50,6 +57,11 @@ const propertySchema = new mongoose.Schema(
       required: [true, 'বিজ্ঞাপনের শিরোনাম দিন'],
       trim: true,
       maxlength: [160, 'শিরোনাম ১৬০ অক্ষরের বেশি হতে পারবে না'],
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: '',
     },
     buildingName: {
       type: String,
@@ -297,8 +309,22 @@ const propertySchema = new mongoose.Schema(
   }
 );
 
-// Pre-save hook to ensure displayPrice is synchronized
-propertySchema.pre('save', function (next) {
+// Pre-save hook to ensure propertyCode and displayPrice are synchronized
+propertySchema.pre('save', async function (next) {
+  if (!this.propertyCode) {
+    let isUnique = false;
+    let attempts = 0;
+    while (!isUnique && attempts < 15) {
+      attempts++;
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const existing = await this.constructor.findOne({ propertyCode: code });
+      if (!existing) {
+        this.propertyCode = code;
+        isUnique = true;
+      }
+    }
+  }
+
   if (this.isNegotiable || Number(this.rentPrice) <= 0) {
     this.displayPrice = 'আলোচনা সাপেক্ষে';
   } else if (this.isMess) {
