@@ -54,7 +54,7 @@ const extractFileUrl = (file, req) => {
   if (file.path && (file.path.startsWith('http://') || file.path.startsWith('https://'))) {
     return file.path;
   }
-  const protocol = req.protocol;
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
   const host = req.get('host');
   return `${protocol}://${host}/uploads/${file.filename}`;
 };
