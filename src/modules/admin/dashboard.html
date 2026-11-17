@@ -987,8 +987,22 @@
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">কোন মাস থেকে ভাড়া হবে <span class="text-rose-500">*</span></label>
-              <input type="text" id="propAvailableMonth" value="চলতি মাস থেকে" placeholder="যেমন: চলতি মাস থেকে / আগামী ১লা তারিখ" 
-                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+              <select id="propAvailableMonth" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800">
+                <option value="চলতি মাস থেকে (Immediate)">চলতি মাস থেকে (Immediate)</option>
+                <option value="১লা পরবর্তী মাস থেকে">১লা পরবর্তী মাস থেকে</option>
+                <option value="জানুয়ারি (January)">জানুয়ারি (January)</option>
+                <option value="ফেব্রুয়ারি (February)">ফেব্রুয়ারি (February)</option>
+                <option value="মার্চ (March)">মার্চ (March)</option>
+                <option value="এপ্রিল (April)">এপ্রিল (April)</option>
+                <option value="মে (May)">মে (May)</option>
+                <option value="জুন (June)">জুন (June)</option>
+                <option value="জুলাই (July)">জুলাই (July)</option>
+                <option value="আগস্ট (August)">আগস্ট (August)</option>
+                <option value="সেপ্টেম্বর (September)">সেপ্টেম্বর (September)</option>
+                <option value="অক্টোবর (October)">অক্টোবর (October)</option>
+                <option value="নভেম্বর (November)">নভেম্বর (November)</option>
+                <option value="ডিসেম্বর (December)">ডিসেম্বর (December)</option>
+              </select>
             </div>
           </div>
         </div>
@@ -1142,11 +1156,53 @@
               class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"></textarea>
           </div>
 
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">ছবির অনলাইন লিংক (Image URLs - প্রতি লাইনে একটি, ঐচ্ছিক)</label>
-            <textarea id="propImageUrls" rows="2" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg" 
-              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
-            <p class="text-[10px] text-slate-400 mt-1">ছবি না দিলে অ্যাপ স্বয়ংক্রিয়ভাবে ডিফল্ট সুন্দর ব্যানার প্রদর্শন করবে।</p>
+          <!-- Image Upload (Optional) -->
+          <div class="space-y-2 pt-2 border-t border-slate-200/60">
+            <div class="flex justify-between items-center">
+              <label class="block font-bold text-slate-700">
+                <i class="fa-solid fa-camera text-emerald-600 mr-1"></i>
+                <span>বাসার ছবি আপলোড করুন <span class="text-slate-400 font-normal">(ঐচ্ছিক - সর্বোচ্চ ১০টি)</span></span>
+              </label>
+              <button type="button" onclick="document.getElementById('propImageFiles').click()" class="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <span>ছবি পছন্দ করুন</span>
+              </button>
+            </div>
+
+            <!-- Drag & Drop / Click Upload Box -->
+            <div onclick="document.getElementById('propImageFiles').click()" 
+              class="border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/40 hover:bg-emerald-50/70 rounded-2xl p-4 text-center cursor-pointer transition-all">
+              <input type="file" id="propImageFiles" multiple accept="image/jpeg,image/png,image/webp,image/jpg" class="hidden" onchange="handleImageSelection(event)">
+              <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-2 text-lg">
+                <i class="fa-solid fa-images"></i>
+              </div>
+              <p class="text-xs font-bold text-slate-700">কম্পিউটার বা মোবাইল থেকে ছবি সিলেক্ট করতে ক্লিক করুন</p>
+              <p class="text-[11px] text-slate-400 mt-0.5">JPG, JPEG, PNG, WEBP ফরম্যাট সাপোর্ট করে (ঐচ্ছিক)</p>
+            </div>
+
+            <!-- Preview Grid for Selected Images -->
+            <div id="propImagePreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2.5 pt-1 hidden">
+              <!-- Rendered via JS -->
+            </div>
+
+            <!-- Optional: External Image URLs fallback/toggle -->
+            <div class="pt-1">
+              <details class="text-[11px] text-slate-500">
+                <summary class="cursor-pointer font-bold text-slate-600 hover:text-emerald-600 select-none">
+                  + অথবা সরাসরি ছবির ওয়েব লিংক (Image URL) দিতে ক্লিক করুন
+                </summary>
+                <div class="mt-2">
+                  <textarea id="propImageUrls" rows="2" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg" 
+                    class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                  <p class="text-[10px] text-slate-400 mt-0.5">প্রতি লাইনে একটি করে ছবির লিংক দিন।</p>
+                </div>
+              </details>
+            </div>
+
+            <p class="text-[11px] text-slate-500 flex items-center gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200/60">
+              <i class="fa-solid fa-circle-info text-emerald-600"></i>
+              <span>ছবি আপলোড সম্পূর্ণ ঐচ্ছিক। ছবি না দিলে অ্যাপ স্বয়ংক্রিয়ভাবে ডিফল্ট আকর্ষণীয় তো-লেট ব্যানার প্রদর্শন করবে।</span>
+            </p>
           </div>
         </div>
 
@@ -2554,6 +2610,62 @@
         subAreas.map(sa => `<option value="${sa}">${sa}</option>`).join('');
     }
 
+    let selectedPropertyImages = []; // Stores File objects for upload
+
+    function handleImageSelection(event) {
+      const files = Array.from(event.target.files || []);
+      if (!files.length) return;
+
+      const remainingSlots = 10 - selectedPropertyImages.length;
+      if (remainingSlots <= 0) {
+        showToast('সর্বোচ্চ ১০টি ছবি আপলোড করা যাবে', true);
+        return;
+      }
+
+      const validFiles = files.filter(f => f.type.startsWith('image/')).slice(0, remainingSlots);
+      selectedPropertyImages = [...selectedPropertyImages, ...validFiles];
+      renderImagePreviews();
+      event.target.value = '';
+    }
+
+    function removeSelectedImage(index) {
+      selectedPropertyImages.splice(index, 1);
+      renderImagePreviews();
+    }
+
+    function renderImagePreviews() {
+      const grid = document.getElementById('propImagePreviewGrid');
+      if (!grid) return;
+
+      if (selectedPropertyImages.length === 0) {
+        grid.classList.add('hidden');
+        grid.innerHTML = '';
+        return;
+      }
+
+      grid.classList.remove('hidden');
+      grid.innerHTML = selectedPropertyImages.map((file, idx) => {
+        const previewUrl = URL.createObjectURL(file);
+        const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+        return `
+          <div class="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-square shadow-sm">
+            <img src="${previewUrl}" alt="Preview" class="w-full h-full object-cover">
+            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-between p-1.5">
+              <div class="flex justify-end">
+                <button type="button" onclick="removeSelectedImage(${idx})" class="w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-xs hover:bg-rose-700 shadow-md">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </div>
+              <span class="text-[9px] text-white font-mono bg-black/60 px-1.5 py-0.5 rounded truncate">${sizeMb} MB</span>
+            </div>
+            <button type="button" onclick="removeSelectedImage(${idx})" class="sm:hidden absolute top-1 right-1 w-5 h-5 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] shadow">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
     function openAddPropertyModal() {
       if (Object.keys(bangladeshLocations).length === 0) {
         loadLocations();
@@ -2561,10 +2673,15 @@
       document.getElementById('addPropertyForm').reset();
       document.getElementById('propIsNegotiable').checked = false;
       document.getElementById('propRentPrice').disabled = false;
+      document.getElementById('propAvailableMonth').value = 'চলতি মাস থেকে (Immediate)';
+      selectedPropertyImages = [];
+      renderImagePreviews();
       document.getElementById('addPropertyModal').classList.remove('hidden');
     }
 
     function closeAddPropertyModal() {
+      selectedPropertyImages = [];
+      renderImagePreviews();
       document.getElementById('addPropertyModal').classList.add('hidden');
     }
 
@@ -2589,7 +2706,7 @@
       const detailedAddress = document.getElementById('propDetailedAddress').value.trim();
       const rentPrice = Number(document.getElementById('propRentPrice').value) || 0;
       const isNegotiable = document.getElementById('propIsNegotiable').checked;
-      const availableMonth = document.getElementById('propAvailableMonth').value.trim() || 'চলতি মাস থেকে';
+      const availableMonth = document.getElementById('propAvailableMonth').value.trim() || 'চলতি মাস থেকে (Immediate)';
       const bedrooms = Number(document.getElementById('propBedrooms').value) || 1;
       const bathrooms = Number(document.getElementById('propBathrooms').value) || 1;
       const balconies = Number(document.getElementById('propBalconies').value) || 0;
@@ -2597,11 +2714,6 @@
       const landlordName = document.getElementById('propLandlordName').value.trim();
       const landlordPhone = document.getElementById('propLandlordPhone').value.trim();
       const description = document.getElementById('propDescription').value.trim();
-      const imageUrlsRaw = document.getElementById('propImageUrls').value.trim();
-      
-      const imageUrls = imageUrlsRaw 
-        ? imageUrlsRaw.split('\n').map(s => s.trim()).filter(Boolean)
-        : [];
 
       const amenities = [];
       ['Gas', 'Lift', 'Generator', 'WiFi', 'CCTV', 'Parking', 'Security'].forEach(a => {
@@ -2626,9 +2738,10 @@
         return;
       }
 
+      const imgCountText = selectedPropertyImages.length > 0 ? ` (${selectedPropertyImages.length}টি ছবি সহ)` : ' (ডিফল্ট ব্যানার সহ)';
       const confirmed = await showConfirmDialog({
         title: 'নতুন বিজ্ঞাপন পোস্ট করবেন?',
-        message: `আপনি কি <strong>"${title}"</strong> (${area}, ${subArea}) বিজ্ঞাপনটি অ্যাপে সরাসরি প্রকাশ করতে চান? একটি অনন্য ৬ ডিজিটের পোস্ট কোড তৈরি হবে।`,
+        message: `আপনি কি <strong>"${title}"</strong> (${area}, ${subArea})${imgCountText} বিজ্ঞাপনটি অ্যাপে সরাসরি প্রকাশ করতে চান? একটি অনন্য ৬ ডিজিটের পোস্ট কোড তৈরি হবে।`,
         icon: 'fa-house-circle-check',
         iconBg: 'bg-emerald-100 text-emerald-700',
         confirmBtnText: 'হ্যাঁ, পোস্ট করুন',
@@ -2638,9 +2751,41 @@
 
       const submitBtn = document.getElementById('btnSubmitAddProperty');
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> পোস্ট হচ্ছে...';
 
       try {
+        let uploadedImageUrls = [];
+
+        // Upload images if any selected
+        if (selectedPropertyImages.length > 0) {
+          submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up animate-bounce mr-1"></i> ছবি আপলোড হচ্ছে...';
+          const formData = new FormData();
+          selectedPropertyImages.forEach(file => {
+            formData.append('images', file);
+          });
+
+          const uploadRes = await fetch('/admin/api/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${adminToken}`
+            },
+            body: formData
+          });
+          const uploadJson = await uploadRes.json();
+          if (!uploadJson.success) {
+            throw new Error(uploadJson.message || 'ছবি আপলোড করতে সমস্যা হয়েছে');
+          }
+          uploadedImageUrls = uploadJson.data?.urls || [];
+        }
+
+        // Merge uploaded images with any manually typed URLs
+        const imageUrlsRaw = document.getElementById('propImageUrls').value.trim();
+        const manualUrls = imageUrlsRaw 
+          ? imageUrlsRaw.split('\n').map(s => s.trim()).filter(Boolean)
+          : [];
+        const finalImageUrls = [...uploadedImageUrls, ...manualUrls];
+
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> বিজ্ঞাপন তৈরি হচ্ছে...';
+
         const payload = {
           title,
           rentType,
@@ -2660,7 +2805,7 @@
           landlordPhone,
           contactPhone: landlordPhone,
           description,
-          imageUrls,
+          imageUrls: finalImageUrls,
           amenities,
         };
 
@@ -2668,7 +2813,7 @@
         closeAddPropertyModal();
         showStatusPopup({
           title: 'বিজ্ঞাপন প্রকাশিত হয়েছে! 🎉',
-          message: `বিজ্ঞাপন সফলভাবে তৈরি হয়েছে!<br>পোস্ট কোড: <strong class="text-emerald-700 font-mono text-base">#${res.propertyCode}</strong><br>শিরোনাম: <strong>${res.title}</strong>`,
+          message: `বিজ্ঞাপন সফলভাবে তৈরি হয়েছে!<br>পোস্ট কোড: <strong class="text-emerald-700 font-mono text-base">#${res.propertyCode}</strong><br>মাস: <strong>${res.availableMonth || availableMonth}</strong><br>ছবি: <strong>${finalImageUrls.length}টি সংযুক্ত</strong>`,
           type: 'success'
         });
         fetchProperties();

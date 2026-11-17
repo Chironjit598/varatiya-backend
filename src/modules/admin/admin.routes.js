@@ -1,6 +1,8 @@
 const express = require('express');
 const adminController = require('./admin.controller');
 const { requireAdminAuth, requireSuperAdminAuth } = require('./admin.middleware');
+const { uploadMultipleImages, extractFileUrl } = require('../../middlewares/upload.middleware');
+const ApiResponse = require('../../utils/apiResponse');
 
 const router = express.Router();
 
@@ -37,6 +39,20 @@ router.post('/api/properties', adminController.createProperty.bind(adminControll
 router.post('/api/properties/:id/toggle-active', adminController.togglePropertyActive.bind(adminController));
 router.delete('/api/properties/:id', adminController.deleteProperty.bind(adminController));
 router.get('/api/locations', adminController.getLocations.bind(adminController));
+router.post('/api/upload', uploadMultipleImages, (req, res) => {
+  if (!req.files || req.files.length === 0) {
+    return ApiResponse.error(res, {
+      statusCode: 400,
+      message: 'কোনো ছবি নির্বাচন করা হয়নি',
+    });
+  }
+  const urls = req.files.map((file) => extractFileUrl(file, req));
+  return ApiResponse.success(res, {
+    statusCode: 201,
+    message: 'ছবিসমূহ সফলভাবে আপলোড হয়েছে',
+    data: { urls },
+  });
+});
 
 // Reports Management
 router.get('/api/reports', adminController.getReports.bind(adminController));
