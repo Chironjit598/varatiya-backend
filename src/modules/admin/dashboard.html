@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>বাসা বন্ধু — এডমিন ড্যাশবোর্ড (Admin Panel)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Hind Siliguri', sans-serif; }
+    .badge-live { background-color: #DEF7EC; color: #03543F; border: 1px solid #31C48D; }
+    .badge-review { background-color: #FEF08A; color: #854D0E; border: 1px solid #FACC15; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap justify-between items-center gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-lg shadow-md shadow-emerald-200">
+          বা
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 leading-tight">বাসা বন্ধু এডমিন প্যানেল</h1>
+          <p class="text-xs text-slate-500" id="serverTime">সার্ভার সময় লোড হচ্ছে...</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Live vs Review Mode Badge / Toggle Button -->
+        <button id="modeToggleBtn" onclick="toggleMode()" class="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm">
+          <i class="fa-solid fa-circle-dot animate-pulse"></i>
+          <span id="modeText">লোড হচ্ছে...</span>
+        </button>
+
+        <!-- Refresh Button -->
+        <button onclick="fetchStats(true)" class="p-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-sm transition-all" title="রিফ্রেশ">
+          <i class="fa-solid fa-arrows-rotate" id="refreshIcon"></i>
+        </button>
+
+        <!-- Auto-Refresh Toggle -->
+        <div class="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-lg">
+          <i class="fa-regular fa-clock text-emerald-600"></i>
+          <span>স্বয়ংক্রিয় রিফ্রেশ: ৩০ সে.</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- KPI Metric Cards Grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
+      <!-- Card 1: Today's Accounts -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs sm:text-sm font-medium text-slate-500">আজকের নতুন অ্যাকাউন্ট</p>
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-emerald-600 mt-1" id="statTodayUsers">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i class="fa-solid fa-user-plus text-base"></i>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">আজ মধ্যরাত থেকে এখন পর্যন্ত</p>
+      </div>
+
+      <!-- Card 2: Total Users -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs sm:text-sm font-medium text-slate-500">সর্বমোট রেজিস্টার্ড ইউজার</p>
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-slate-800 mt-1" id="statTotalUsers">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i class="fa-solid fa-users text-base"></i>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">মোট ডাটাবেজ ইউজার সংখ্যা</p>
+      </div>
+
+      <!-- Card 3: Limit Exhausted (3/3) -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-amber-200/80 bg-amber-50/20 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs sm:text-sm font-medium text-amber-800">লিমিট শেষ (৩/৩ দেখা)</p>
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-amber-600 mt-1" id="statLimitReached">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+            <i class="fa-solid fa-lock text-base"></i>
+          </div>
+        </div>
+        <p class="text-xs text-amber-700/80 mt-2">পে-ওয়াল ব্লকে আছেন</p>
+      </div>
+
+      <!-- Card 4: Paid Users -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs sm:text-sm font-medium text-slate-500">চলতি মাসের পেইড গ্রাহক</p>
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-teal-600 mt-1" id="statPaidUsers">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+            <i class="fa-solid fa-credit-card text-base"></i>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2" id="statPaidMonthText">নভেম্বর মাস</p>
+      </div>
+
+      <!-- Card 5: Total Properties -->
+      <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden col-span-2 lg:col-span-1">
+        <div class="flex justify-between items-start">
+          <div>
+            <p class="text-xs sm:text-sm font-medium text-slate-500">মোট বাড়ি/বিজ্ঞাপন</p>
+            <h3 class="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-1" id="statTotalProps">0</h3>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <i class="fa-solid fa-house-chimney text-base"></i>
+          </div>
+        </div>
+        <p class="text-xs text-slate-400 mt-2">আজ নতুন পোস্ট: <span id="statTodayProps" class="font-bold text-slate-700">0</span> টি</p>
+      </div>
+    </div>
+
+    <!-- Quick Manual Unlock Action Box -->
+    <div class="bg-gradient-to-r from-emerald-600 to-teal-700 rounded-2xl p-4 sm:p-5 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="space-y-1">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-300 animate-ping"></span>
+          <h2 class="text-base sm:text-lg font-bold">ম্যানুয়াল সংযোগ অনুমোদন (১-ক্লিকে কাস্টমার আনলক)</h2>
+        </div>
+        <p class="text-xs sm:text-sm text-emerald-100">কোনো গ্রাহক বিকাশ/নগদে টাকা পাঠালে সরাসরি নম্বর লিখে ১ সেকেন্ডে পুরো মাসের সংযোগ চালু করে দিন।</p>
+      </div>
+      <form onsubmit="handleManualApprove(event)" class="flex items-center gap-2 max-w-md w-full">
+        <input 
+          type="tel" 
+          id="manualPhoneInput" 
+          placeholder="গ্রাহকের ১১ ডিজিটের নম্বর (যেমন: 017XXXXXXXX)" 
+          class="px-3.5 py-2.5 rounded-xl text-slate-800 text-sm w-full outline-none focus:ring-2 focus:ring-amber-300 font-medium" 
+          required 
+          pattern="^01[3-9][0-9]{8}$"
+        />
+        <button type="submit" id="btnManualApprove" class="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold px-4 py-2.5 rounded-xl text-xs sm:text-sm whitespace-nowrap transition-all shadow-sm">
+          অনুমোদন দিন
+        </button>
+      </form>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="border-b border-slate-200 flex gap-2 overflow-x-auto pb-1 text-sm font-semibold">
+      <button onclick="switchTab('tabLimits')" id="btnTabLimits" class="px-4 py-2.5 rounded-xl transition-all border flex items-center gap-2 bg-emerald-50 text-emerald-700 border-emerald-200">
+        <i class="fa-solid fa-lock text-xs"></i>
+        <span>যাদের লিমিট শেষ হয়েছে</span>
+        <span id="badgeLimitCount" class="bg-amber-500 text-white text-xs px-2 py-0.5 rounded-full font-bold ml-1">0</span>
+      </button>
+
+      <button onclick="switchTab('tabUsers')" id="btnTabUsers" class="px-4 py-2.5 rounded-xl transition-all border flex items-center gap-2 bg-white text-slate-600 border-slate-200 hover:bg-slate-50">
+        <i class="fa-solid fa-users text-xs"></i>
+        <span>আজকের ও সব ইউজার</span>
+        <span id="badgeTodayUserCount" class="bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full font-bold ml-1">0</span>
+      </button>
+
+      <button onclick="switchTab('tabPayments')" id="btnTabPayments" class="px-4 py-2.5 rounded-xl transition-all border flex items-center gap-2 bg-white text-slate-600 border-slate-200 hover:bg-slate-50">
+        <i class="fa-solid fa-money-bill-wave text-xs"></i>
+        <span>পেমেন্ট ও গেটওয়ে এসএমএস</span>
+      </button>
+    </div>
+
+    <!-- Tab 1: Limit Reached Devices Section -->
+    <div id="sectionLimits" class="space-y-4">
+      <div class="flex justify-between items-center">
+        <div>
+          <h3 class="text-base font-bold text-slate-800">ফ্রি ৩টি সুযোগ শেষ করা ইউজারদের তালিকা</h3>
+          <p class="text-xs text-slate-500">এরা ইতোমধ্যে ৩টি বাড়িওয়ালার নম্বর দেখে ফেলেছেন এবং এখন ৫০ টাকার পে-ওয়ালে আছেন</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm">
+            <thead class="bg-slate-50 text-slate-500 border-b border-slate-200 text-xs">
+              <tr>
+                <th class="px-4 py-3">#</th>
+                <th class="px-4 py-3">ডিভাইস / ইউজার</th>
+                <th class="px-4 py-3">দেখা হয়েছে</th>
+                <th class="px-4 py-3">যেসব বাসা দেখেছেন</th>
+                <th class="px-4 py-3">সর্বশেষ দেখার সময়</th>
+                <th class="px-4 py-3">স্ট্যাটাস</th>
+                <th class="px-4 py-3 text-right">অ্যাকশন</th>
+              </tr>
+            </thead>
+            <tbody id="limitTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+              <tr><td colspan="7" class="p-6 text-center text-slate-400">ডাটা লোড হচ্ছে...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Users Section -->
+    <div id="sectionUsers" class="hidden space-y-4">
+      <div class="flex flex-wrap justify-between items-center gap-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-800">রেজিস্টার্ড ইউজারদের তালিকা</h3>
+          <p class="text-xs text-slate-500">আজকের এবং সাম্প্রতিক রেজিস্ট্রেশনকৃত ইউজারদের বিস্তারিত</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="filterUserView('today')" id="btnFilterToday" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white">আজকের ইউজার</button>
+          <button onclick="filterUserView('all')" id="btnFilterAll" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200">সব ইউজার</button>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs sm:text-sm">
+            <thead class="bg-slate-50 text-slate-500 border-b border-slate-200 text-xs">
+              <tr>
+                <th class="px-4 py-3">#</th>
+                <th class="px-4 py-3">নাম</th>
+                <th class="px-4 py-3">মোবাইল নম্বর</th>
+                <th class="px-4 py-3">রোল</th>
+                <th class="px-4 py-3">তৈরির সময় (BST)</th>
+                <th class="px-4 py-3">কানেকশন স্ট্যাটাস</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody" class="divide-y divide-slate-100 font-medium text-slate-700">
+              <tr><td colspan="6" class="p-6 text-center text-slate-400">ডাটা লোড হচ্ছে...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Payments & SMS Gateway Section -->
+    <div id="sectionPayments" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Recent Incoming SMS -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+          <div class="flex justify-between items-center">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-message text-emerald-600"></i>
+              <span>ফোনের SMS Gateway থেকে প্রাপ্ত মেসেজ</span>
+            </h3>
+            <span class="text-xs text-slate-400">সর্বশেষ ১০টি</span>
+          </div>
+          <div id="smsList" class="space-y-2.5 max-h-96 overflow-y-auto">
+            <p class="text-xs text-slate-400 text-center py-4">কোনো এসএমএস নেই</p>
+          </div>
+        </div>
+
+        <!-- Pending Verifications Queue -->
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-3">
+          <div class="flex justify-between items-center">
+            <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-hourglass-half text-amber-600"></i>
+              <span>ভেরিফিকেশনের জন্য অপেক্ষারত কাস্টমার (Queue)</span>
+            </h3>
+            <span class="text-xs text-slate-400">সর্বশেষ ১০টি</span>
+          </div>
+          <div id="pendingList" class="space-y-2.5 max-h-96 overflow-y-auto">
+            <p class="text-xs text-slate-400 text-center py-4">কোনো অপেক্ষারত রিকোয়েস্ট নেই</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    let globalData = null;
+    let currentUserFilter = 'today';
+
+    async function fetchStats(isManual = false) {
+      const refreshIcon = document.getElementById('refreshIcon');
+      if (refreshIcon) refreshIcon.classList.add('fa-spin');
+
+      try {
+        const res = await fetch('/admin/api/stats');
+        const json = await res.json();
+        if (json.success && json.data) {
+          globalData = json.data;
+          renderDashboard(json.data);
+        }
+      } catch (err) {
+        console.error('Error fetching admin stats:', err);
+      } finally {
+        if (refreshIcon) refreshIcon.classList.remove('fa-spin');
+      }
+    }
+
+    function renderDashboard(data) {
+      const s = data.summary;
+
+      document.getElementById('serverTime').innerText = `সার্ভার সময়: ${s.serverTimeBST}`;
+      document.getElementById('statTodayUsers').innerText = s.todayUsersCount;
+      document.getElementById('statTotalUsers').innerText = s.totalUsers;
+      document.getElementById('statLimitReached').innerText = s.limitReachedCount;
+      document.getElementById('statPaidUsers').innerText = s.paidUsersCount;
+      document.getElementById('statPaidMonthText').innerText = `${s.bengaliMonth} মাস`;
+      document.getElementById('statTotalProps').innerText = s.totalProperties;
+      document.getElementById('statTodayProps').innerText = s.todayPropertiesCount;
+
+      document.getElementById('badgeLimitCount').innerText = s.limitReachedCount;
+      document.getElementById('badgeTodayUserCount').innerText = s.todayUsersCount;
+
+      // Mode Badge
+      const modeBtn = document.getElementById('modeToggleBtn');
+      const modeText = document.getElementById('modeText');
+      if (s.appMode === 'LIVE') {
+        modeBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm badge-live';
+        modeText.innerText = 'মোড: LIVE (৫০ টাকার পে-ওয়াল চালু)';
+      } else {
+        modeBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm badge-review';
+        modeText.innerText = 'মোড: REVIEW (সম্পূর্ণ ফ্রি)';
+      }
+
+      renderLimitDevices(data.limitReachedDevices);
+      renderUsers(currentUserFilter === 'today' ? data.todayUsers : data.recentUsers);
+      renderSms(data.recentSms);
+      renderPending(data.recentPending);
+    }
+
+    function renderLimitDevices(devices) {
+      const tbody = document.getElementById('limitTableBody');
+      if (!devices || devices.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-slate-400">এখনও কারো ৩/৩ লিমিট শেষ হয়নি</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = devices.map((d, idx) => {
+        const timeStr = new Date(d.updatedAt).toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+        const propsHtml = (d.properties && d.properties.length > 0)
+          ? d.properties.map(p => `
+              <div class="text-xs py-0.5">
+                <span class="font-bold text-slate-900">${p.propertyCode ? '#' + p.propertyCode : ''} [${p.area}]</span> ${p.title} 
+                <span class="text-slate-500">(${p.phone || 'নম্বর নেই'})</span>
+              </div>
+            `).join('')
+          : '<span class="text-slate-400">বাসার তথ্য লোড হয়নি</span>';
+
+        const phoneDisplay = d.matchedPhone 
+          ? `<span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">${d.matchedPhone}</span>`
+          : `<span class="text-slate-400 text-xs italic">গেস্ট মোড (নম্বর দেয়নি)</span>`;
+
+        const statusDisplay = d.isPaid
+          ? `<span class="bg-teal-100 text-teal-800 text-xs px-2 py-0.5 rounded-full font-bold">পেইড সক্রিয়</span>`
+          : `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">পে-ওয়াল ব্লক</span>`;
+
+        const actionBtn = d.matchedPhone
+          ? `<button onclick="quickApprove('${d.matchedPhone}')" class="px-2.5 py-1 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all">আনলক দিন</button>`
+          : `<span class="text-slate-300 text-xs">-</span>`;
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition-all">
+            <td class="px-4 py-3 font-bold text-slate-400">${idx + 1}</td>
+            <td class="px-4 py-3">
+              <div class="font-bold text-slate-800 font-mono text-xs">${d.shortDeviceId}...</div>
+              <div class="mt-0.5">${phoneDisplay}</div>
+            </td>
+            <td class="px-4 py-3">
+              <span class="bg-red-50 text-red-600 border border-red-200 font-bold px-2 py-0.5 rounded text-xs">৩/৩ টি</span>
+            </td>
+            <td class="px-4 py-3 max-w-sm">${propsHtml}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">${timeStr}</td>
+            <td class="px-4 py-3">${statusDisplay}</td>
+            <td class="px-4 py-3 text-right">${actionBtn}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderUsers(users) {
+      const tbody = document.getElementById('usersTableBody');
+      if (!users || users.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="p-6 text-center text-slate-400">কোনো ইউজার পাওয়া যায়নি</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = users.map((u, idx) => {
+        const timeStr = new Date(u.createdAt).toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+        const paidBadge = u.isPaid 
+          ? `<span class="bg-teal-100 text-teal-800 text-xs px-2 py-0.5 rounded-full font-bold">Paid (${u.paidMonth || ''})</span>`
+          : `<span class="bg-slate-100 text-slate-500 text-xs px-2 py-0.5 rounded-full">Free</span>`;
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition-all">
+            <td class="px-4 py-3 font-bold text-slate-400">${idx + 1}</td>
+            <td class="px-4 py-3 font-bold text-slate-800">${u.name}</td>
+            <td class="px-4 py-3 font-mono font-semibold text-emerald-700">${u.phoneNumber}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">${u.role || 'Seeker'}</td>
+            <td class="px-4 py-3 text-xs text-slate-500">${timeStr}</td>
+            <td class="px-4 py-3">${paidBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderSms(smsList) {
+      const el = document.getElementById('smsList');
+      if (!smsList || smsList.length === 0) {
+        el.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">কোনো এসএমএস নেই</p>';
+        return;
+      }
+
+      el.innerHTML = smsList.map(s => `
+        <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs space-y-1">
+          <div class="flex justify-between font-bold">
+            <span class="text-emerald-700">${s.senderNumber} (${s.provider || 'MFS'})</span>
+            <span class="text-slate-800">৳ ${s.amount}</span>
+          </div>
+          <p class="text-slate-600 font-mono text-[11px] break-all">${s.rawSms || ''}</p>
+          <div class="flex justify-between text-[10px] text-slate-400 pt-1">
+            <span>Trx: ${s.trxId || 'N/A'}</span>
+            <span>${new Date(s.receivedAt).toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka' })}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPending(pendingList) {
+      const el = document.getElementById('pendingList');
+      if (!pendingList || pendingList.length === 0) {
+        el.innerHTML = '<p class="text-xs text-slate-400 text-center py-4">কোনো অপেক্ষারত রিকোয়েস্ট নেই</p>';
+        return;
+      }
+
+      el.innerHTML = pendingList.map(p => `
+        <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs flex justify-between items-center">
+          <div>
+            <div class="font-bold text-slate-800">${p.phoneNumber}</div>
+            <div class="text-[10px] text-slate-400">${new Date(p.createdAt).toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka' })}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs px-2 py-0.5 rounded-full font-bold ${p.status === 'MATCHED' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}">
+              ${p.status}
+            </span>
+            ${p.status === 'WAITING' ? `<button onclick="quickApprove('${p.phoneNumber}')" class="px-2 py-1 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded">Approve</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function switchTab(tabId) {
+      const tabs = ['tabLimits', 'tabUsers', 'tabPayments'];
+      const sections = ['sectionLimits', 'sectionUsers', 'sectionPayments'];
+
+      tabs.forEach((t, i) => {
+        const btn = document.getElementById('btn' + t.charAt(0).toUpperCase() + t.slice(1));
+        const sec = document.getElementById(sections[i]);
+        if (t === tabId) {
+          btn.className = 'px-4 py-2.5 rounded-xl transition-all border flex items-center gap-2 bg-emerald-50 text-emerald-700 border-emerald-200';
+          sec.classList.remove('hidden');
+        } else {
+          btn.className = 'px-4 py-2.5 rounded-xl transition-all border flex items-center gap-2 bg-white text-slate-600 border-slate-200 hover:bg-slate-50';
+          sec.classList.add('hidden');
+        }
+      });
+    }
+
+    function filterUserView(type) {
+      currentUserFilter = type;
+      const btnToday = document.getElementById('btnFilterToday');
+      const btnAll = document.getElementById('btnFilterAll');
+      if (type === 'today') {
+        btnToday.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white';
+        btnAll.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200';
+        if (globalData) renderUsers(globalData.todayUsers);
+      } else {
+        btnAll.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white';
+        btnToday.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200';
+        if (globalData) renderUsers(globalData.recentUsers);
+      }
+    }
+
+    async function toggleMode() {
+      if (!globalData) return;
+      const current = globalData.summary.appMode;
+      const next = current === 'LIVE' ? 'review' : 'live';
+      const confirmMsg = next === 'review'
+        ? 'আপনি কি Google Review Mode চালু করতে চান? (সব পে-ওয়াল বন্ধ হয়ে ফ্রি হয়ে যাবে)'
+        : 'আপনি কি Live Production Mode চালু করতে চান? (৫০ টাকার পে-ওয়াল সক্রিয় হবে)';
+
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const res = await fetch(`/admin/api/mode?set=${next}`, { method: 'POST' });
+        const json = await res.json();
+        alert(json.message || 'মোড সফলভাবে পরিবর্তিত হয়েছে');
+        fetchStats(true);
+      } catch (err) {
+        alert('মোড পরিবর্তন করতে সমস্যা হয়েছে');
+      }
+    }
+
+    async function quickApprove(phone) {
+      if (!confirm(`${phone} নম্বরটিকে কি সম্পূর্ণ মাসের জন্য পেইড আনলক করে দিতে চান?`)) return;
+      await approvePhone(phone);
+    }
+
+    async function handleManualApprove(e) {
+      e.preventDefault();
+      const phoneInput = document.getElementById('manualPhoneInput');
+      const phone = phoneInput.value.trim();
+      if (!phone) return;
+      await approvePhone(phone);
+      phoneInput.value = '';
+    }
+
+    async function approvePhone(phone) {
+      const btn = document.getElementById('btnManualApprove');
+      if (btn) btn.disabled = true;
+
+      try {
+        const res = await fetch('/admin/api/approve-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phoneNumber: phone })
+        });
+        const json = await res.json();
+        if (json.success) {
+          alert(`✅ ${json.message}\nস্বয়ংক্রিয় পাসওয়ার্ড: ${json.data.autoPassword}`);
+          fetchStats(true);
+        } else {
+          alert('❌ ' + (json.message || 'ব্যর্থ হয়েছে'));
+        }
+      } catch (err) {
+        alert('অনুমোদন করতে সমস্যা হয়েছে');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    // Initial Load & Auto-Refresh every 30 seconds
+    fetchStats();
+    setInterval(() => fetchStats(false), 30000);
+  </script>
+</body>
+</html>

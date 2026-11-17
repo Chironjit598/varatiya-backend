@@ -13,14 +13,20 @@ const alertRoutes = require('./modules/alert/alert.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
 const uploadRoutes = require('./modules/upload/upload.routes');
 const paymentRoutes = require('./modules/payment/payment.routes');
+const adminRoutes = require('./modules/admin/admin.routes');
 const { notFoundHandler, errorHandler } = require('./middlewares/error.middleware');
 const { generalRateLimiter } = require('./middlewares/rateLimiter');
 const ApiResponse = require('./utils/apiResponse');
 
 const app = express();
 
-// Security HTTP headers (allowing cross-origin image loading for mobile app)
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+// Security HTTP headers (allowing cross-origin image loading for mobile app and CDN resources for admin dashboard)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: false,
+  })
+);
 
 // Enable CORS
 const corsOptions = {
@@ -88,6 +94,7 @@ app.get('/', (req, res) => {
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Mount module routes
+app.use('/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/properties', propertyRoutes);
