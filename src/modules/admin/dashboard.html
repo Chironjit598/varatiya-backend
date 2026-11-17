@@ -775,6 +775,57 @@
     </div>
   </div>
 
+  <!-- 3. ACTION CONFIRMATION MODAL (Replaces window.confirm & prompt) -->
+  <div id="customConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
+      <div id="confirmIconContainer" class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner">
+        <i id="confirmModalIcon" class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div>
+        <h3 class="text-base sm:text-lg font-black text-slate-900" id="confirmModalTitle">নিশ্চিতকরণ</h3>
+        <p class="text-xs text-slate-600 mt-1 leading-relaxed" id="confirmModalMessage">আপনি কি এই কাজটি করতে নিশ্চিত?</p>
+      </div>
+
+      <!-- Optional Input Container (for prompt-like behavior) -->
+      <div id="confirmInputContainer" class="hidden text-left">
+        <label id="confirmInputLabel" class="block text-xs font-bold text-slate-700 mb-1">ইনপুট দিন:</label>
+        <input type="text" id="confirmModalInput" class="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 font-mono text-center focus:outline-none focus:ring-2 focus:ring-emerald-500">
+      </div>
+
+      <div class="flex gap-2.5 pt-2">
+        <button onclick="closeConfirmModal(false)" class="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-xs font-bold hover:bg-slate-50 transition-all">
+          বাতিল করুন
+        </button>
+        <button id="btnConfirmModalAction" onclick="closeConfirmModal(true)" class="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all">
+          হ্যাঁ, নিশ্চিত করুন
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. ACTION STATUS / RESULT POPUP (Shows what happened) -->
+  <div id="statusPopupModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200 relative overflow-hidden">
+      <!-- Animated Status Icon -->
+      <div id="statusIconContainer" class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-inner">
+        <i id="statusPopupIcon" class="fa-solid fa-circle-check"></i>
+      </div>
+      <div>
+        <h3 class="text-base sm:text-lg font-black text-slate-900" id="statusPopupTitle">সফল হয়েছে!</h3>
+        <p class="text-xs text-slate-600 mt-1.5 leading-relaxed" id="statusPopupMessage">অ্যাকশনটি সফলভাবে সম্পন্ন হয়েছে।</p>
+      </div>
+      <div class="pt-2">
+        <button onclick="closeStatusPopup()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md">
+          ঠিক আছে (বন্ধ করুন)
+        </button>
+      </div>
+      <!-- Auto dismiss progress bar -->
+      <div class="absolute bottom-0 left-0 right-0 h-1 bg-slate-100">
+        <div id="statusProgressBar" class="h-full bg-emerald-500 w-full transition-all duration-3000 ease-linear"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ═════════════════════════════════════════════════════════════ -->
   <!-- JAVASCRIPT: LOGIC & APIS                                    -->
   <!-- ═══════════════════════════════════════════════════════════ -->
@@ -809,7 +860,7 @@
         });
         const json = await res.json();
         if (res.status === 401) {
-          handleLogout();
+          handleLogout(true);
           throw new Error('সেশনের মেয়াদ শেষ। পুনরায় লগইন করুন।');
         }
         if (!json.success && json.message) {
@@ -834,6 +885,119 @@
         toast.style.transform = 'translateY(-150%)';
         toast.style.opacity = '0';
       }, 3500);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // MODAL DIALOG & STATUS POPUP SYSTEM
+    // ─────────────────────────────────────────────────────────────
+    let confirmModalResolver = null;
+    let statusDismissTimeout = null;
+    let isConfirmInputMode = false;
+
+    function showConfirmDialog({
+      title = 'নিশ্চিতকরণ',
+      message = 'আপনি কি এই কাজটি করতে চান?',
+      icon = 'fa-triangle-exclamation',
+      iconBg = 'bg-amber-100 text-amber-700',
+      confirmBtnText = 'হ্যাঁ, নিশ্চিত করুন',
+      confirmBtnClass = 'bg-emerald-600 hover:bg-emerald-700 text-white',
+      hasInput = false,
+      inputLabel = 'সংখ্যা লিখুন:',
+      inputValue = '',
+    }) {
+      return new Promise((resolve) => {
+        confirmModalResolver = resolve;
+        isConfirmInputMode = hasInput;
+        document.getElementById('confirmModalTitle').textContent = title;
+        document.getElementById('confirmModalMessage').innerHTML = message;
+        
+        const iconElem = document.getElementById('confirmModalIcon');
+        iconElem.className = `fa-solid ${icon}`;
+        document.getElementById('confirmIconContainer').className = `w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-2xl shadow-inner ${iconBg}`;
+        
+        const confirmBtn = document.getElementById('btnConfirmModalAction');
+        confirmBtn.className = `flex-1 py-2.5 rounded-xl text-xs font-bold shadow-md transition-all ${confirmBtnClass}`;
+        confirmBtn.textContent = confirmBtnText;
+
+        const inputContainer = document.getElementById('confirmInputContainer');
+        const inputElem = document.getElementById('confirmModalInput');
+        if (hasInput) {
+          document.getElementById('confirmInputLabel').textContent = inputLabel;
+          inputElem.value = inputValue;
+          inputContainer.classList.remove('hidden');
+          setTimeout(() => {
+            inputElem.focus();
+            inputElem.select();
+          }, 100);
+        } else {
+          inputContainer.classList.add('hidden');
+          inputElem.value = '';
+        }
+
+        document.getElementById('customConfirmModal').classList.remove('hidden');
+      });
+    }
+
+    function closeConfirmModal(confirmed) {
+      const inputElem = document.getElementById('confirmModalInput');
+      const inputValue = inputElem.value;
+      document.getElementById('customConfirmModal').classList.add('hidden');
+      if (confirmModalResolver) {
+        if (!confirmed) {
+          confirmModalResolver(false);
+        } else {
+          confirmModalResolver(isConfirmInputMode ? inputValue : true);
+        }
+        confirmModalResolver = null;
+      }
+    }
+
+    function showStatusPopup({
+      title = 'সম্পন্ন হয়েছে!',
+      message = 'অ্যাকশনটি সফলভাবে কার্যকর হয়েছে।',
+      type = 'success', // 'success', 'error', 'info'
+      autoClose = true,
+      duration = 2800,
+    }) {
+      clearTimeout(statusDismissTimeout);
+      const modal = document.getElementById('statusPopupModal');
+      const iconContainer = document.getElementById('statusIconContainer');
+      const iconElem = document.getElementById('statusPopupIcon');
+      const progressBar = document.getElementById('statusProgressBar');
+
+      document.getElementById('statusPopupTitle').textContent = title;
+      document.getElementById('statusPopupMessage').innerHTML = message;
+
+      if (type === 'error') {
+        iconContainer.className = 'w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-inner bg-rose-100 text-rose-600 animate-pulse';
+        iconElem.className = 'fa-solid fa-circle-xmark';
+        progressBar.className = 'h-full bg-rose-500 w-full transition-all duration-3000 ease-linear';
+      } else if (type === 'info') {
+        iconContainer.className = 'w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-inner bg-indigo-100 text-indigo-600';
+        iconElem.className = 'fa-solid fa-circle-info';
+        progressBar.className = 'h-full bg-indigo-500 w-full transition-all duration-3000 ease-linear';
+      } else {
+        iconContainer.className = 'w-16 h-16 rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-inner bg-emerald-100 text-emerald-600';
+        iconElem.className = 'fa-solid fa-circle-check';
+        progressBar.className = 'h-full bg-emerald-500 w-full transition-all duration-3000 ease-linear';
+      }
+
+      modal.classList.remove('hidden');
+
+      // Trigger progress bar animation
+      progressBar.style.width = '100%';
+      setTimeout(() => { progressBar.style.width = '0%'; }, 50);
+
+      if (autoClose) {
+        statusDismissTimeout = setTimeout(() => {
+          closeStatusPopup();
+        }, duration);
+      }
+    }
+
+    function closeStatusPopup() {
+      clearTimeout(statusDismissTimeout);
+      document.getElementById('statusPopupModal').classList.add('hidden');
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -940,7 +1104,18 @@
       }
     }
 
-    function handleLogout() {
+    async function handleLogout(force = false) {
+      if (!force) {
+        const confirmed = await showConfirmDialog({
+          title: 'লগআউট নিশ্চিতকরণ',
+          message: 'আপনি কি নিশ্চিত যে এডমিন প্যানেল থেকে লগআউট করতে চান?',
+          icon: 'fa-right-from-bracket',
+          iconBg: 'bg-rose-100 text-rose-700',
+          confirmBtnText: 'হ্যাঁ, লগআউট করুন',
+          confirmBtnClass: 'bg-rose-600 hover:bg-rose-700 text-white'
+        });
+        if (!confirmed) return;
+      }
       adminToken = '';
       currentAdmin = null;
       localStorage.removeItem('adminToken');
@@ -1067,12 +1242,34 @@
     }
 
     async function toggleMode(targetMode) {
+      const isLive = targetMode === 'live';
+      const confirmed = await showConfirmDialog({
+        title: isLive ? 'লাইভ মোড সক্রিয়করণ' : 'রিভিউ মোড সক্রিয়করণ',
+        message: isLive 
+          ? 'লাইভ মোডে ৩টি ফ্রি ভিউর পর ইউজারদের ৫০৳ ফি দিয়ে আনলক করতে হবে। আপনি কি নিশ্চিত?' 
+          : 'রিভিউ মোডে পে-ওয়াল বন্ধ থাকবে এবং অ্যাপ সম্পূর্ণ ফ্রি থাকবে (প্লে স্টোর/অ্যাপ স্টোর রিভিউয়ের জন্য উপযুক্ত)। আপনি কি নিশ্চিত?',
+        icon: isLive ? 'fa-bolt' : 'fa-shield-halved',
+        iconBg: isLive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+        confirmBtnText: isLive ? 'হ্যাঁ, লাইভ মোড চালু করুন' : 'হ্যাঁ, রিভিউ মোড চালু করুন',
+        confirmBtnClass: isLive ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-amber-600 hover:bg-amber-700 text-white'
+      });
+      if (!confirmed) return;
+
       try {
         const res = await apiCall(`/mode?set=${targetMode}`, 'POST');
-        showToast(res.mode === 'LIVE' ? 'লাইভ মোড সক্রিয় (৫০৳ পে-ওয়াল)' : 'রিভিউ মোড সক্রিয় (সম্পূর্ণ ফ্রি)');
+        showStatusPopup({
+          title: isLive ? 'লাইভ মোড সক্রিয়! 🟢' : 'রিভিউ মোড সক্রিয়! 🟡',
+          message: isLive ? 'অ্যাপে এখন ৫০৳ ফি পে-ওয়াল কার্যকর রয়েছে।' : 'অ্যাপ এখন রিভিউ মোডে রয়েছে (সকল ইউজারের জন্য সম্পূর্ণ ফ্রি)।',
+          type: 'success'
+        });
+        showToast(isLive ? 'লাইভ মোড সক্রিয়' : 'রিভিউ মোড সক্রিয়');
         fetchStats();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'মোড পরিবর্তন ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
@@ -1226,32 +1423,53 @@
     // MANUAL APPROVE / 1-CLICK UNLOCK
     // ─────────────────────────────────────────────────────────────
     async function handleManualApprove(e) {
-      e.preventDefault();
+      if (e && e.preventDefault) e.preventDefault();
       const phoneInput = document.getElementById('manualApprovePhone');
       const phone = phoneInput.value.trim();
-      const btn = document.getElementById('btnApproveSubmit');
+      if (!phone) {
+        showToast('ফোন নম্বর দিন', true);
+        return;
+      }
 
+      const confirmed = await showConfirmDialog({
+        title: 'পেইড আনলক নিশ্চিতকরণ',
+        message: `আপনি কি <strong>${phone}</strong> নম্বরটিকে ১ ক্লিকে পেইড আনলক করতে চান? এর ফলে গ্রাহক আনলিমিটেড বাসা ও বাড়িওয়ালার নম্বর দেখতে পারবেন।`,
+        icon: 'fa-lock-open',
+        iconBg: 'bg-emerald-100 text-emerald-700',
+        confirmBtnText: 'হ্যাঁ, আনলক করুন',
+        confirmBtnClass: 'bg-emerald-600 hover:bg-emerald-700 text-white'
+      });
+      if (!confirmed) return;
+
+      const btn = document.getElementById('btnApproveSubmit');
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> আনলক হচ্ছে...';
 
       try {
         const res = await apiCall('/approve-user', 'POST', { phoneNumber: phone });
-        showToast(res.message);
+        showStatusPopup({
+          title: 'পেইড আনলক সফল! 🔓',
+          message: `গ্রাহক <strong>${phone}</strong> সফলভাবে পেইড আনলক হয়েছে। তিনি এখন অ্যাপে সকল বাড়িওয়ালার নম্বর আনলিমিটেড দেখতে পারবেন।`,
+          type: 'success'
+        });
         phoneInput.value = '';
         fetchStats();
+        fetchUsers();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'আনলক ব্যর্থ হয়েছে',
+          message: err.message,
+          type: 'error'
+        });
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-lock-open"></i> <span>এখনই পেইড আনলক করুন</span>';
       }
     }
 
-    function approveSpecificUser(phone) {
-      if (confirm(`আপনি কি নিশ্চিত যে ${phone} নম্বরটিকে ১ ক্লিকে পেইড আনলক করতে চান?`)) {
-        document.getElementById('manualApprovePhone').value = phone;
-        handleManualApprove({ preventDefault: () => {} });
-      }
+    async function approveSpecificUser(phone) {
+      document.getElementById('manualApprovePhone').value = phone;
+      handleManualApprove({ preventDefault: () => {} });
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -1390,11 +1608,21 @@
     async function toggleUserPaid(id) {
       try {
         const res = await apiCall(`/users/${id}/toggle-paid`, 'POST');
+        const isNowPaid = res.user?.isPaid;
+        showStatusPopup({
+          title: isNowPaid ? 'পেইড গ্রাহক সক্রিয়! 🔓' : 'ফ্রি গ্রাহকে পরিবর্তন! ⚪',
+          message: res.message || 'ইউজারের পেইড স্ট্যাটাস সফলভাবে আপডেট হয়েছে।',
+          type: isNowPaid ? 'success' : 'info'
+        });
         showToast(res.message);
         fetchUsers();
         fetchStats();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'স্ট্যাটাস পরিবর্তন ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
@@ -1413,25 +1641,54 @@
     async function confirmResetPassword() {
       if (!resetTargetUserId) return;
       const newPassword = document.getElementById('newPasswordInput').value.trim();
+      const phone = document.getElementById('resetTargetPhone').textContent;
+      if (!newPassword) {
+        showToast('নতুন পাসওয়ার্ড দিন', true);
+        return;
+      }
       try {
         const res = await apiCall(`/users/${resetTargetUserId}/reset-password`, 'POST', { newPassword });
-        showToast(res.message);
         closeResetModal();
+        showStatusPopup({
+          title: 'পাসওয়ার্ড পরিবর্তন সফল! 🔑',
+          message: `গ্রাহক <strong>${phone}</strong> এর পাসওয়ার্ড পরিবর্তন করে '<strong>${newPassword}</strong>' করা হয়েছে।`,
+          type: 'success'
+        });
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'পাসওয়ার্ড রিসেট ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
     async function deleteUser(id, phone) {
-      if (confirm(`আপনি কি নিশ্চিত যে ${phone} একাউন্টটি স্থায়ীভাবে ডিলেট করতে চান?`)) {
-        try {
-          const res = await apiCall(`/users/${id}`, 'DELETE');
-          showToast(res.message);
-          fetchUsers();
-          fetchStats();
-        } catch (err) {
-          showToast(err.message, true);
-        }
+      const confirmed = await showConfirmDialog({
+        title: 'ইউজার ডিলেট নিশ্চিতকরণ',
+        message: `আপনি কি নিশ্চিত যে <strong>${phone}</strong> একাউন্টটি স্থায়ীভাবে ডাটাবেজ থেকে মুছে ফেলতে চান? এটি পুনরুদ্ধার করা যাবে না।`,
+        icon: 'fa-trash-can',
+        iconBg: 'bg-rose-100 text-rose-700',
+        confirmBtnText: 'হ্যাঁ, স্থায়ীভাবে ডিলেট করুন',
+        confirmBtnClass: 'bg-rose-600 hover:bg-rose-700 text-white'
+      });
+      if (!confirmed) return;
+
+      try {
+        const res = await apiCall(`/users/${id}`, 'DELETE');
+        showStatusPopup({
+          title: 'ইউজার ডিলেট সম্পন্ন! 🗑️',
+          message: `গ্রাহক <strong>${phone}</strong> এর একাউন্ট সফলভাবে মুছে ফেলা হয়েছে।`,
+          type: 'success'
+        });
+        fetchUsers();
+        fetchStats();
+      } catch (err) {
+        showStatusPopup({
+          title: 'ডিলেট ব্যর্থ হয়েছে',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
@@ -1618,12 +1875,21 @@
       try {
         const idToToggle = currentViewedUser?._id || currentViewedUserId;
         const res = await apiCall(`/users/${idToToggle}/toggle-paid`, 'POST');
-        showToast(res.message);
+        const isNowPaid = res.user?.isPaid;
+        showStatusPopup({
+          title: isNowPaid ? 'পেইড গ্রাহক সক্রিয়! 🔓' : 'ফ্রি গ্রাহকে পরিবর্তন! ⚪',
+          message: res.message || 'ইউজারের পেইড অবস্থা সফলভাবে পরিবর্তন করা হয়েছে।',
+          type: isNowPaid ? 'success' : 'info'
+        });
         openUserViewedModal(currentViewedUserId);
         fetchUsers();
         fetchStats();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'অ্যাকশন ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
@@ -1645,6 +1911,7 @@
         await apiCall('/crm/lead', 'POST', payload);
         statusLabel.textContent = '✓ সংরক্ষিত';
         setTimeout(() => { statusLabel.textContent = 'স্বয়ংক্রিয় সেভ হয়'; }, 2000);
+        showToast('সিআরএম লিড তথ্য আপডেট হয়েছে');
         fetchUsers();
         fetchStats();
       } catch (err) {
@@ -1658,7 +1925,10 @@
       const phone = currentViewedUser.phoneNumber;
       const noteInput = document.getElementById('crmNewNoteInput');
       const noteText = noteInput.value.trim();
-      if (!noteText) return;
+      if (!noteText) {
+        showToast('নোটের বিবরণ লিখুন', true);
+        return;
+      }
 
       const btn = document.getElementById('btnSaveCrmNote');
       btn.disabled = true;
@@ -1676,12 +1946,20 @@
 
       try {
         await apiCall('/crm/lead', 'POST', payload);
-        showToast('নোট সফলভাবে যুক্ত হয়েছে');
         noteInput.value = '';
+        showStatusPopup({
+          title: 'নোট যুক্ত হয়েছে! 📝',
+          message: `গ্রাহক <strong>${phone}</strong> এর সাথে কথা বলার নোট ও ফলো-আপ তারিখ সফলভাবে সংরক্ষিত হয়েছে।`,
+          type: 'success'
+        });
         openUserViewedModal(currentViewedUserId);
         fetchUsers();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'নোট সংরক্ষণ ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-plus"></i> <span>নোট যোগ করুন</span>';
@@ -1696,12 +1974,20 @@
 
       try {
         const res = await apiCall(`/users/${phone}/set-limit`, 'POST', { limit: targetLimit });
-        showToast(res.message);
+        showStatusPopup({
+          title: 'ফ্রি লিমিট বৃদ্ধি সফল! 🎁',
+          message: `গ্রাহক <strong>${phone}</strong> এর ফ্রি ভিউ লিমিট <strong>+${addCount}টি</strong> বাড়ানো হয়েছে। এখন সর্বমোট ফ্রি লিমিট: <strong>${targetLimit}টি</strong>।`,
+          type: 'success'
+        });
         openUserViewedModal(currentViewedUserId);
         fetchUsers();
         fetchStats();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'লিমিট বৃদ্ধি ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
@@ -1711,35 +1997,67 @@
 
       try {
         const res = await apiCall(`/users/${phone}/set-limit`, 'POST', { limit: targetLimit });
-        showToast(res.message);
+        showStatusPopup({
+          title: 'লিমিট নির্ধারণ সম্পন্ন! 🎯',
+          message: `গ্রাহক <strong>${phone}</strong> এর সর্বমোট ফ্রি ভিউ লিমিট <strong>${targetLimit}টি</strong> নির্ধারণ করা হয়েছে।`,
+          type: 'success'
+        });
         openUserViewedModal(currentViewedUserId);
         fetchUsers();
         fetchStats();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'লিমিট সেট ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
-    function promptCustomLimit() {
+    async function promptCustomLimit() {
       if (!currentViewedUser?.phoneNumber) return;
       const phone = currentViewedUser.phoneNumber;
-      const input = prompt('এই গ্রাহকের জন্য মোট কতটি ফ্রি নম্বর দেখার সুযোগ দিতে চান?', '10');
-      if (input) {
+      const currentLimit = parseInt(document.getElementById('uvmLimitInfo').textContent) || 3;
+
+      const input = await showConfirmDialog({
+        title: 'কাস্টম লিমিট নির্ধারণ',
+        message: `গ্রাহক <strong>${phone}</strong> এর জন্য সর্বমোট কতটি ফ্রি বাসা দেখার সুযোগ দিতে চান? (বর্তমানে: ${currentLimit}টি)`,
+        icon: 'fa-sliders',
+        iconBg: 'bg-purple-100 text-purple-700',
+        confirmBtnText: 'লিমিট সেট করুন',
+        confirmBtnClass: 'bg-purple-600 hover:bg-purple-700 text-white',
+        hasInput: true,
+        inputLabel: 'মোট ফ্রি লিমিট সংখ্যা লিখুন:',
+        inputValue: '10'
+      });
+
+      if (input && input !== true) {
         const num = parseInt(input);
         if (!isNaN(num) && num > 0) {
           quickSetLimit(num);
+        } else {
+          showToast('সঠিক ধনাত্মক সংখ্যা দিন', true);
         }
       }
     }
 
     async function quickAddLimitDirect(phone, count) {
       try {
-        const res = await apiCall(`/users/${phone}/set-limit`, 'POST', { limit: 3 + count });
-        showToast(`${phone} এর লিমিট বাড়িয়ে ${3 + count}টি করা হয়েছে!`);
+        const targetLimit = 3 + count;
+        const res = await apiCall(`/users/${phone}/set-limit`, 'POST', { limit: targetLimit });
+        showStatusPopup({
+          title: 'লিমিট বৃদ্ধি সফল! 🎁',
+          message: `গ্রাহক <strong>${phone}</strong> এর ফ্রি লিমিট বাড়িয়ে <strong>${targetLimit}টি</strong> করা হয়েছে!`,
+          type: 'success'
+        });
         fetchStats();
         fetchUsers();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'লিমিট বাড়ানো ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
@@ -1863,23 +2181,51 @@
     async function togglePropActive(id) {
       try {
         const res = await apiCall(`/properties/${id}/toggle-active`, 'POST');
-        showToast(res.message);
+        const isActive = res.property?.isActive !== false;
+        showStatusPopup({
+          title: isActive ? 'পোস্ট সক্রিয় করা হয়েছে! 👁️' : 'পোস্ট হাইড করা হয়েছে! 🙈',
+          message: isActive 
+            ? 'বাসার বিজ্ঞাপনটি এখন সাধারণ ব্যবহারকারীদের জন্য অ্যাপে দৃশ্যমান।' 
+            : 'বাসার বিজ্ঞাপনটি সাময়িকভাবে অ্যাপ থেকে হাইড করা হয়েছে (ইউজাররা এটি দেখতে পাবে না)।',
+          type: isActive ? 'success' : 'info'
+        });
         fetchProperties();
+        fetchStats();
       } catch (err) {
-        showToast(err.message, true);
+        showStatusPopup({
+          title: 'অ্যাকশন ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
     async function deleteProperty(id, title) {
-      if (confirm(`আপনি কি নিশ্চিত যে বিজ্ঞাপন '${title}' স্থায়ীভাবে ডিলেট করতে চান?`)) {
-        try {
-          const res = await apiCall(`/properties/${id}`, 'DELETE');
-          showToast(res.message);
-          fetchProperties();
-          fetchStats();
-        } catch (err) {
-          showToast(err.message, true);
-        }
+      const confirmed = await showConfirmDialog({
+        title: 'বিজ্ঞাপন ডিলেট নিশ্চিতকরণ',
+        message: `আপনি কি নিশ্চিত যে বিজ্ঞাপন <strong>'${title}'</strong> স্থায়ীভাবে ডাটাবেজ থেকে মুছে ফেলতে চান? এটি পুনরায় ফিরিয়ে আনা সম্ভব নয়।`,
+        icon: 'fa-trash-can',
+        iconBg: 'bg-rose-100 text-rose-700',
+        confirmBtnText: 'হ্যাঁ, স্থায়ীভাবে ডিলেট করুন',
+        confirmBtnClass: 'bg-rose-600 hover:bg-rose-700 text-white'
+      });
+      if (!confirmed) return;
+
+      try {
+        const res = await apiCall(`/properties/${id}`, 'DELETE');
+        showStatusPopup({
+          title: 'বিজ্ঞাপন ডিলেট হয়েছে! 🗑️',
+          message: `বিজ্ঞাপন <strong>'${title}'</strong> সফলভাবে মুছে ফেলা হয়েছে।`,
+          type: 'success'
+        });
+        fetchProperties();
+        fetchStats();
+      } catch (err) {
+        showStatusPopup({
+          title: 'ডিলেট ব্যর্থ হয়েছে',
+          message: err.message,
+          type: 'error'
+        });
       }
     }
 
@@ -1925,97 +2271,126 @@
         return `
           <div class="bg-white p-4 rounded-2xl border ${isResolved ? 'border-emerald-200 bg-emerald-50/20' : isDismissed ? 'border-slate-200 opacity-60' : 'border-orange-200'} shadow-sm space-y-3">
             <div class="flex justify-between items-start gap-3">
-              <div>
-                <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                  isResolved ? 'bg-emerald-100 text-emerald-800' : isDismissed ? 'bg-slate-100 text-slate-600' : 'bg-orange-100 text-orange-800'
-                }">
-                  ${r.reason === 'ALREADY_RENTED' ? '🏠 ভাড়া হয়ে গেছে' : r.reason}
-                </span>
-                <h3 class="font-bold text-slate-900 text-sm mt-1">
-                  ${prop.propertyCode ? `<span class="font-mono text-emerald-700">#${prop.propertyCode}</span> ` : ''}${prop.title || 'বিজ্ঞাপন ডিলেট করা হয়েছে'}
-                </h3>
-                <p class="text-xs text-slate-500">${prop.area || ''} • বাড়িওয়ালার নম্বর: <strong class="font-mono">${prop.contactPhone || prop.landlordPhone || '-'}</strong></p>
-                ${r.note ? `<p class="text-xs text-slate-700 mt-1 italic">"${r.note}"</p>` : ''}
-              </div>
-              <span class="text-[10px] text-slate-400 font-mono">${new Date(r.createdAt).toLocaleDateString('bn-BD')}</span>
+            <div>
+              <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                isResolved ? 'bg-emerald-100 text-emerald-800' : isDismissed ? 'bg-slate-100 text-slate-600' : 'bg-orange-100 text-orange-800'
+              }">
+                ${r.reason === 'ALREADY_RENTED' ? '🏠 ভাড়া হয়ে গেছে' : r.reason}
+              </span>
+              <h3 class="font-bold text-slate-900 text-sm mt-1">
+                ${prop.propertyCode ? `<span class="font-mono text-emerald-700">#${prop.propertyCode}</span> ` : ''}${prop.title || 'বিজ্ঞাপন ডিলেট করা হয়েছে'}
+              </h3>
+              <p class="text-xs text-slate-500">${prop.area || ''} • বাড়িওয়ালার নম্বর: <strong class="font-mono">${prop.contactPhone || prop.landlordPhone || '-'}</strong></p>
+              ${r.note ? `<p class="text-xs text-slate-700 mt-1 italic">"${r.note}"</p>` : ''}
             </div>
-
-            ${!isResolved && !isDismissed ? `
-              <div class="flex gap-2 pt-2 border-t border-slate-100">
-                <button onclick="resolveReportAction('${r._id || r.id}', 'RENTED')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5">
-                  <i class="fa-solid fa-check"></i>
-                  <span>ভাড়া হয়ে গেছে মার্ক ও হাইড করুন</span>
-                </button>
-                <button onclick="resolveReportAction('${r._id || r.id}', 'DISMISS')" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs">
-                  রিপোর্ট বাতিল
-                </button>
-              </div>
-            ` : `
-              <div class="text-[11px] font-bold ${isResolved ? 'text-emerald-700' : 'text-slate-500'}">
-                ${isResolved ? '✓ এই পোস্টটি ভাড়া হয়ে গেছে হিসেবে রিজলভ ও অ্যাপ থেকে হাইড করা হয়েছে' : '✕ এই রিপোর্টটি বাতিল করা হয়েছে'}
-              </div>
-            `}
+            <span class="text-[10px] text-slate-400 font-mono">${new Date(r.createdAt).toLocaleDateString('bn-BD')}</span>
           </div>
-        `;
-      }).join('');
+
+          ${!isResolved && !isDismissed ? `
+            <div class="flex gap-2 pt-2 border-t border-slate-100">
+              <button onclick="resolveReportAction('${r._id || r.id}', 'RENTED')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow-sm flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-check"></i>
+                <span>ভাড়া হয়ে গেছে মার্ক ও হাইড করুন</span>
+              </button>
+              <button onclick="resolveReportAction('${r._id || r.id}', 'DISMISS')" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs">
+                রিপোর্ট বাতিল
+              </button>
+            </div>
+          ` : `
+            <div class="text-[11px] font-bold ${isResolved ? 'text-emerald-700' : 'text-slate-500'}">
+              ${isResolved ? '✓ এই পোস্টটি ভাড়া হয়ে গেছে হিসেবে রিজলভ ও অ্যাপ থেকে হাইড করা হয়েছে' : '✕ এই রিপোর্টটি বাতিল করা হয়েছে'}
+            </div>
+          `}
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function resolveReportAction(id, action) {
+    const isRented = action === 'RENTED';
+    const confirmed = await showConfirmDialog({
+      title: isRented ? 'বাসা ভাড়া হয়ে গেছে নিশ্চিতকরণ' : 'রিপোর্ট বাতিল নিশ্চিতকরণ',
+      message: isRented 
+        ? 'এই বাসাটি ভাড়া হয়ে গেছে হিসেবে মার্ক করে অ্যাপ থেকে হাইড করতে চান?' 
+        : 'এই রিপোর্টটি ভিত্তিহীন বা বাতিল হিসেবে চিহ্নিত করতে চান?',
+      icon: isRented ? 'fa-house-circle-check' : 'fa-xmark',
+      iconBg: isRented ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700',
+      confirmBtnText: isRented ? 'হ্যাঁ, ভাড়া মার্ক করুন' : 'হ্যাঁ, বাতিল করুন',
+      confirmBtnClass: isRented ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-slate-700 hover:bg-slate-800 text-white'
+    });
+    if (!confirmed) return;
+
+    try {
+      const res = await apiCall(`/reports/${id}/resolve`, 'POST', { action });
+      showStatusPopup({
+        title: isRented ? 'ভাড়া হিসেবে হাইড করা হয়েছে! 🏠' : 'রিপোর্ট বাতিল করা হয়েছে!',
+        message: res.message || 'রিপোর্টটি সফলভাবে আপডেট হয়েছে।',
+        type: 'success'
+      });
+      fetchReports();
+      fetchStats();
+    } catch (err) {
+      showStatusPopup({
+        title: 'রিপোর্ট প্রসেস ব্যর্থ',
+        message: err.message,
+        type: 'error'
+      });
     }
+  }
 
-    async function resolveReportAction(id, action) {
-      try {
-        const res = await apiCall(`/reports/${id}/resolve`, 'POST', { action });
-        showToast(res.message);
-        fetchReports();
-        fetchStats();
-      } catch (err) {
-        showToast(err.message, true);
-      }
+  // ─────────────────────────────────────────────────────────────
+  // APP CONFIGURATION & SETTINGS
+  // ─────────────────────────────────────────────────────────────
+  async function fetchConfig() {
+    try {
+      const cfg = await apiCall('/config');
+      appConfig = cfg;
+      document.getElementById('cfgBkash').value = cfg.bKashNumber || '01306070598';
+      document.getElementById('cfgNagad').value = cfg.nagadNumber || '01306070598';
+      document.getElementById('cfgWhatsapp').value = cfg.whatsAppNumber || '01726228790';
+      document.getElementById('cfgFee').value = cfg.feeAmount || 50;
+      document.getElementById('cfgLimit').value = cfg.freeGuestLimit || 3;
+      document.getElementById('cfgPasskey').value = cfg.adminPasskey || '5980';
+      document.getElementById('cfgNotice').value = cfg.noticeBanner || '';
+    } catch (err) {
+      console.error(err);
     }
+  }
 
-    // ─────────────────────────────────────────────────────────────
-    // APP CONFIGURATION & SETTINGS
-    // ─────────────────────────────────────────────────────────────
-    async function fetchConfig() {
-      try {
-        const cfg = await apiCall('/config');
-        appConfig = cfg;
-        document.getElementById('cfgBkash').value = cfg.bKashNumber || '01306070598';
-        document.getElementById('cfgNagad').value = cfg.nagadNumber || '01306070598';
-        document.getElementById('cfgWhatsapp').value = cfg.whatsAppNumber || '01726228790';
-        document.getElementById('cfgFee').value = cfg.feeAmount || 50;
-        document.getElementById('cfgLimit').value = cfg.freeGuestLimit || 3;
-        document.getElementById('cfgPasskey').value = cfg.adminPasskey || '5980';
-        document.getElementById('cfgNotice').value = cfg.noticeBanner || '';
-      } catch (err) {
-        console.error(err);
-      }
+  async function handleSaveConfig(e) {
+    e.preventDefault();
+    const btn = document.getElementById('btnSaveConfig');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> সেভ হচ্ছে...';
+
+    const data = {
+      bKashNumber: document.getElementById('cfgBkash').value.trim(),
+      nagadNumber: document.getElementById('cfgNagad').value.trim(),
+      whatsAppNumber: document.getElementById('cfgWhatsapp').value.trim(),
+      feeAmount: Number(document.getElementById('cfgFee').value),
+      freeGuestLimit: Number(document.getElementById('cfgLimit').value),
+      adminPasskey: document.getElementById('cfgPasskey').value.trim(),
+      noticeBanner: document.getElementById('cfgNotice').value.trim(),
+    };
+
+    try {
+      const res = await apiCall('/config', 'POST', data);
+      showStatusPopup({
+        title: 'সেটিংস সেভ হয়েছে! ⚙️',
+        message: 'বিকাশ, নগদ নম্বর, ফি এবং অন্যান্য অ্যাপ সেটিংস সফলভাবে আপডেট করা হয়েছে।',
+        type: 'success'
+      });
+    } catch (err) {
+      showStatusPopup({
+        title: 'সেটিংস সেভ ব্যর্থ',
+        message: err.message,
+        type: 'error'
+      });
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>সেটিংস সেভ করুন</span>';
     }
-
-    async function handleSaveConfig(e) {
-      e.preventDefault();
-      const btn = document.getElementById('btnSaveConfig');
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> সেভ হচ্ছে...';
-
-      const data = {
-        bKashNumber: document.getElementById('cfgBkash').value.trim(),
-        nagadNumber: document.getElementById('cfgNagad').value.trim(),
-        whatsAppNumber: document.getElementById('cfgWhatsapp').value.trim(),
-        feeAmount: Number(document.getElementById('cfgFee').value),
-        freeGuestLimit: Number(document.getElementById('cfgLimit').value),
-        adminPasskey: document.getElementById('cfgPasskey').value.trim(),
-        noticeBanner: document.getElementById('cfgNotice').value.trim(),
-      };
-
-      try {
-        const res = await apiCall('/config', 'POST', data);
-        showToast('অ্যাপ সেটিংস সফলভাবে সেভ করা হয়েছে!');
-      } catch (err) {
-        showToast(err.message, true);
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> <span>সেটিংস সেভ করুন</span>';
-      }
-    }
+  }
 
     // ─────────────────────────────────────────────────────────────
     // SMS LOG TABLE
