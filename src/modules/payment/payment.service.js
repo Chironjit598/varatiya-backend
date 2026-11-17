@@ -4,9 +4,11 @@ const env = require('../../config/env');
 const User = require('../auth/user.model');
 const IncomingSms = require('./incomingSms.model');
 const PendingVerification = require('./pendingVerification.model');
+const AppConfig = require('../admin/appConfig.model');
 
 // 'LIVE' = 50 Tk paywall enabled for users; 'REVIEW' = Google Review Mode (free, zero paywalls)
 let currentAppMode = process.env.APP_MODE || (process.env.IS_REVIEW_MODE === 'true' ? 'REVIEW' : 'LIVE');
+let cachedConfig = null;
 
 class PaymentService {
   /**
@@ -24,14 +26,61 @@ class PaymentService {
   }
 
   /**
+   * Load dynamic app config from DB on demand / startup
+   */
+  async loadConfig() {
+    try {
+      let config = await AppConfig.findOne({ key: 'main_config' });
+      if (!config) {
+        config = await AppConfig.create({
+          key: 'main_config',
+          appMode: process.env.APP_MODE || (process.env.IS_REVIEW_MODE === 'true' ? 'REVIEW' : 'LIVE'),
+          bKashNumber: process.env.BKASH_PERSONAL_NUMBER || '01306070598',
+          nagadNumber: process.env.NAGAD_PERSONAL_NUMBER || '01306070598',
+          whatsAppNumber: process.env.WHATSAPP_SUPPORT_NUMBER || '01726228790',
+          feeAmount: Number(env.CONNECTION_FEE) || 50,
+          freeGuestLimit: Number(env.GUEST_FREE_CONTACT_LIMIT) || 3,
+          adminPasskey: '5980',
+        });
+      }
+      cachedConfig = config.toObject();
+      currentAppMode = cachedConfig.appMode;
+      return cachedConfig;
+    } catch {
+      return null;
+    }
+  }
+
+  getCachedConfig() {
+    return cachedConfig;
+  }
+
+  setCachedConfig(cfg) {
+    cachedConfig = cfg;
+    if (cfg && cfg.appMode) {
+      currentAppMode = cfg.appMode;
+    }
+  }
+
+  /**
    * Dynamically switch mode between 'LIVE' and 'REVIEW'
    */
-  setAppMode(mode) {
+  async setAppMode(mode) {
     const normalized = String(mode).toUpperCase();
     if (normalized === 'REVIEW') {
       currentAppMode = 'REVIEW';
     } else {
       currentAppMode = 'LIVE';
+    }
+    try {
+      await AppConfig.findOneAndUpdate(
+        { key: 'main_config' },
+        { $set: { appMode: currentAppMode } },
+        { upsert: true, new: true }
+      );
+      if (cachedConfig) cachedConfig.appMode = currentAppMode;
+    } catch {
+      // ignore
     }
     return currentAppMode;
   }
@@ -515,24 +564,26 @@ class PaymentService {
     const now = new Date();
     const monthName = this.getBengaliMonthName(now);
     const monthYear = this.getCurrentMonthYear(now);
+    const cfg = cachedConfig || {};
 
     return {
       mode: this.getAppMode(),
       isPaymentEnabled: this.isPaymentEnabled(),
-      feeAmount: Number(env.CONNECTION_FEE) || 50,
+      feeAmount: Number(cfg.feeAmount) || Number(env.CONNECTION_FEE) || 50,
       currency: 'BDT',
       currencySymbol: '৳',
       currentMonthName: monthName,
       currentMonthYear: monthYear,
-      bKashNumber: process.env.BKASH_PERSONAL_NUMBER || '01306070598',
-      nagadNumber: process.env.NAGAD_PERSONAL_NUMBER || '01306070598',
-      whatsAppNumber: process.env.WHATSAPP_SUPPORT_NUMBER || '01726228790',
+      bKashNumber: cfg.bKashNumber || process.env.BKASH_PERSONAL_NUMBER || '01306070598',
+      nagadNumber: cfg.nagadNumber || process.env.NAGAD_PERSONAL_NUMBER || '01306070598',
+      whatsAppNumber: cfg.whatsAppNumber || process.env.WHATSAPP_SUPPORT_NUMBER || '01726228790',
       paymentType: 'Send Money (পার্সোনাল)',
       title: `পুরো ${monthName} মাস আনলিমিটেড বাড়িওয়ালার ডিরেক্ট নম্বর দেখুন`,
       complianceHeading: 'মাঠপর্যায়ে টু-লেট সংগ্রহ ও বাড়িওয়ালার সাথে সরাসরি কানেকশন সার্ভিস চার্জ',
       emotionalHook:
         'রোদে পুড়ে, জ্যাম ঠেলে বাড়ি বাড়ি ঘুরে বাসা খোঁজার দিন শেষ! মাত্র ৫০ টাকায় পুরো মাস সরাসরি বাড়িওয়ালার সাথে কথা বলুন।',
-      freeGuestLimit: Number(env.GUEST_FREE_CONTACT_LIMIT) || 3,
+      freeGuestLimit: Number(cfg.freeGuestLimit) || Number(env.GUEST_FREE_CONTACT_LIMIT) || 3,
+      noticeBanner: cfg.noticeBanner || '',
     };
   }
 }
