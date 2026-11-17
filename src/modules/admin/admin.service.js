@@ -100,8 +100,8 @@ class AdminService {
         monthYear: dev.monthYear,
         updatedAt: dev.updatedAt,
         matchedPhone,
-        matchedUserName: matchedUser?.name || null,
-        isPaid: matchedUser?.isPaid || false,
+        matchedUserName: matchedUserName || null,
+        isPaid: Boolean(isPaid),
         properties: props.map((p) => ({
           id: p._id,
           propertyCode: p.propertyCode || '',
