@@ -30,7 +30,7 @@ const requireAdminAuth = (req, res, next) => {
       });
     }
 
-    if (!decoded.isAdmin && decoded.role !== 'bachelor_admin') {
+    if (!decoded.isAdmin && decoded.role !== 'bachelor_admin' && decoded.role !== 'manager') {
       return ApiResponse.error(res, {
         statusCode: 403,
         message: 'নিষিদ্ধ: এই কাজের জন্য এডমিন পারমিশন প্রয়োজন।',

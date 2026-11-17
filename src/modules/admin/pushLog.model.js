@@ -45,3 +45,4 @@ const pushLogSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model('PushLog', pushLogSchema);
+

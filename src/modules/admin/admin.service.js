@@ -95,7 +95,7 @@ class AdminService {
       throw new Error('এই নম্বরে কোনো এডমিন একাউন্ট পাওয়া যায়নি');
     }
 
-    if (user.role !== 'bachelor_admin' && cleanPhone !== '01306070598') {
+    if (user.role !== 'bachelor_admin' && user.role !== 'manager' && cleanPhone !== '01306070598') {
       throw new Error('এই একাউন্টটির এডমিন প্যানেলে প্রবেশের অনুমতি নেই');
     }
 
