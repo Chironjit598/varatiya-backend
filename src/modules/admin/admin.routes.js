@@ -21,6 +21,7 @@ router.post('/api/approve-user', adminController.approveUser.bind(adminControlle
 
 // User Management
 router.get('/api/users', adminController.getUsers.bind(adminController));
+router.get('/api/users/:id/viewed-properties', adminController.getUserViewedProperties.bind(adminController));
 router.post('/api/users/:id/toggle-paid', adminController.toggleUserPaid.bind(adminController));
 router.post('/api/users/:id/reset-password', adminController.resetUserPassword.bind(adminController));
 router.delete('/api/users/:id', adminController.deleteUser.bind(adminController));

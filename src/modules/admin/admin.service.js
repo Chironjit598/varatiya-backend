@@ -291,14 +291,137 @@ class AdminService {
         .select('name phoneNumber role isPaid paidMonth paidUntil createdAt'),
     ]);
 
+    // Enrich users with viewed property count
+    const enrichedUsers = await Promise.all(
+      users.map(async (u) => {
+        const uObj = u.toObject();
+        try {
+          const [interest, guestTrackings] = await Promise.all([
+            UserInterest.findOne({ userId: u._id }).select('viewedProperties').lean(),
+            GuestDeviceTracking.find({
+              $or: [{ userId: u._id }, { phoneNumber: u.phoneNumber }],
+            })
+              .select('viewedPropertyIds')
+              .lean(),
+          ]);
+
+          const propIdSet = new Set();
+          if (interest?.viewedProperties) {
+            interest.viewedProperties.forEach((p) => {
+              if (p.propertyId) propIdSet.add(p.propertyId.toString());
+            });
+          }
+          if (guestTrackings) {
+            guestTrackings.forEach((g) => {
+              if (g.viewedPropertyIds) {
+                g.viewedPropertyIds.forEach((id) => propIdSet.add(id.toString()));
+              }
+            });
+          }
+          uObj.viewedCount = propIdSet.size;
+        } catch {
+          uObj.viewedCount = 0;
+        }
+        return uObj;
+      })
+    );
+
     return {
-      users,
+      users: enrichedUsers,
       pagination: {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
         totalPages: Math.ceil(total / parseInt(limit)) || 1,
       },
+    };
+  }
+
+  /**
+   * Get all properties viewed by a specific user with full details
+   * Supports either user ObjectId OR 11-digit phoneNumber
+   */
+  async getUserViewedProperties(userIdOrPhone) {
+    let user = null;
+    const isPhone = /^\d{11}$/.test(userIdOrPhone);
+
+    if (isPhone) {
+      user = await User.findOne({ phoneNumber: userIdOrPhone })
+        .select('name phoneNumber role isPaid paidMonth createdAt')
+        .lean();
+    } else {
+      user = await User.findById(userIdOrPhone)
+        .select('name phoneNumber role isPaid paidMonth createdAt')
+        .lean();
+    }
+
+    if (!user) {
+      if (isPhone) {
+        user = {
+          _id: userIdOrPhone,
+          name: 'গেস্ট ব্রাউজার',
+          phoneNumber: userIdOrPhone,
+          role: 'Seeker',
+          isPaid: false,
+          createdAt: new Date(),
+        };
+      } else {
+        throw new Error('ইউজার পাওয়া যায়নি');
+      }
+    }
+
+    const queryOr = [{ phoneNumber: user.phoneNumber }];
+    if (user._id && !isPhone) {
+      queryOr.push({ userId: user._id });
+    }
+
+    const [interest, guestTrackings] = await Promise.all([
+      user._id && !isPhone ? UserInterest.findOne({ userId: user._id }).lean() : null,
+      GuestDeviceTracking.find({ $or: queryOr }).lean(),
+    ]);
+
+    const viewedMap = new Map(); // propId -> { viewedAt }
+    if (interest?.viewedProperties) {
+      interest.viewedProperties.forEach((p) => {
+        if (p.propertyId) {
+          viewedMap.set(p.propertyId.toString(), {
+            viewedAt: p.viewedAt || interest.updatedAt,
+          });
+        }
+      });
+    }
+    if (guestTrackings) {
+      guestTrackings.forEach((g) => {
+        if (g.viewedPropertyIds) {
+          g.viewedPropertyIds.forEach((id) => {
+            const key = id.toString();
+            if (!viewedMap.has(key)) {
+              viewedMap.set(key, { viewedAt: g.updatedAt });
+            }
+          });
+        }
+      });
+    }
+
+    const propIds = Array.from(viewedMap.keys());
+    const properties = await Property.find({ _id: { $in: propIds } })
+      .select(
+        'propertyCode title description area subArea rentPrice contactPhone landlordPhone landlordName isActive isVerified createdAt'
+      )
+      .lean();
+
+    const enrichedProperties = properties.map((p) => {
+      const meta = viewedMap.get(p._id.toString()) || {};
+      return {
+        ...p,
+        viewedAt: meta.viewedAt || p.createdAt,
+      };
+    });
+
+    return {
+      user,
+      properties: enrichedProperties,
+      totalViews: enrichedProperties.length,
     };
   }
 

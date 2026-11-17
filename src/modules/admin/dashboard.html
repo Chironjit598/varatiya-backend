@@ -597,8 +597,79 @@
   </div>
 
   <!-- ═════════════════════════════════════════════════════════════ -->
-  <!-- MODALS: RESET PASSWORD & CONFIRM DELETE                     -->
+  <!-- MODALS: USER VIEWED PROPERTIES, RESET PASSWORD, DELETE        -->
   <!-- ═════════════════════════════════════════════════════════════ -->
+
+  <!-- 1. USER VIEWED PROPERTIES MODAL -->
+  <div id="userViewedModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-100 animate-in fade-in zoom-in duration-200">
+      
+      <!-- Modal Header -->
+      <div class="bg-slate-900 p-4 sm:p-5 text-white flex justify-between items-start gap-3">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <h3 class="text-base sm:text-lg font-bold text-white" id="uvmUserName">ইউজার নাম</h3>
+            <span id="uvmPaidBadge" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase">...</span>
+          </div>
+          <p class="text-xs text-slate-300 font-mono flex items-center gap-2">
+            <span id="uvmUserPhone">017...</span>
+            <span class="text-slate-500">•</span>
+            <span id="uvmUserRole" class="text-slate-400">Seeker</span>
+          </p>
+        </div>
+
+        <div class="flex items-center gap-1.5 sm:gap-2">
+          <!-- Call & WhatsApp Quick Buttons -->
+          <a id="uvmCallBtn" href="#" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
+            <i class="fa-solid fa-phone"></i>
+            <span class="hidden sm:inline">কল দিন</span>
+          </a>
+          <a id="uvmWaBtn" href="#" target="_blank" class="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all">
+            <i class="fa-brands fa-whatsapp"></i>
+            <span class="hidden sm:inline">হোয়াটসঅ্যাপ</span>
+          </a>
+          <!-- Close Button -->
+          <button onclick="closeUserViewedModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm transition-all ml-1" title="বন্ধ করুন">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Suggested Talking Points / Pitch Box -->
+      <div class="bg-emerald-50 border-b border-emerald-100 p-3 sm:p-4 px-4 sm:px-5 flex items-start gap-3">
+        <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+          <i class="fa-solid fa-lightbulb"></i>
+        </div>
+        <div class="text-xs text-emerald-950 leading-relaxed">
+          <strong class="text-emerald-900 block mb-0.5">💡 গ্রাহককে ফোনে যা বলতে পারেন (Call Script):</strong>
+          <span id="uvmCallScript" class="text-emerald-800 italic">"আসসালামু আলাইকুম, আপনি বাসাবন্ধু অ্যাপে এই বাসাগুলো দেখেছিলেন। বাড়িওয়ালার সাথে কি কথা হয়েছে? বাসা পেয়েছেন কি না?"</span>
+        </div>
+      </div>
+
+      <!-- Modal Body (List of Viewed Properties) -->
+      <div class="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 bg-slate-50" id="uvmPropertiesList">
+        <div class="py-8 text-center text-slate-400">
+          <i class="fa-solid fa-spinner animate-spin mr-1"></i> বাসা তালিকা লোড হচ্ছে...
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3.5 px-4 sm:px-5 bg-white border-t border-slate-200 flex justify-between items-center text-xs">
+        <span class="text-slate-600 font-bold" id="uvmTotalViewsText">মোট দেখা বাসা: ০টি</span>
+        <div class="flex items-center gap-2">
+          <button id="uvmTogglePaidBtn" onclick="handleUvmTogglePaid()" class="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all">
+            <!-- Populated via JS -->
+          </button>
+          <button onclick="closeUserViewedModal()" class="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-all">
+            বন্ধ করুন
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- 2. RESET PASSWORD MODAL -->
   <div id="resetPasswordModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
     <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-4 border border-slate-100">
       <h3 class="font-bold text-slate-900 text-sm">পাসওয়ার্ড রিসেট করুন</h3>
@@ -958,21 +1029,29 @@
             </div>
 
             <!-- Action Buttons -->
-            <div class="flex items-center gap-1.5 pt-1">
+            <div class="space-y-1.5 pt-1">
+              <div class="flex items-center gap-1.5">
+                ${hasPhone ? `
+                  <a href="tel:${phone}" class="flex-1 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-xs text-center border border-indigo-200 transition-all flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-phone"></i>
+                    <span>কল</span>
+                  </a>
+                  <a href="https://wa.me/88${phone}" target="_blank" class="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg text-xs text-center border border-emerald-200 transition-all flex items-center justify-center gap-1">
+                    <i class="fa-brands fa-whatsapp"></i>
+                    <span>চ্যাট</span>
+                  </a>
+                ` : ''}
+                ${!isPaid && hasPhone ? `
+                  <button onclick="approveSpecificUser('${phone}')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-all shadow-sm flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>পেইড করুন</span>
+                  </button>
+                ` : ''}
+              </div>
               ${hasPhone ? `
-                <a href="tel:${phone}" class="flex-1 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-xs text-center border border-indigo-200 transition-all flex items-center justify-center gap-1">
-                  <i class="fa-solid fa-phone"></i>
-                  <span>কল</span>
-                </a>
-                <a href="https://wa.me/88${phone}" target="_blank" class="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg text-xs text-center border border-emerald-200 transition-all flex items-center justify-center gap-1">
-                  <i class="fa-brands fa-whatsapp"></i>
-                  <span>চ্যাট</span>
-                </a>
-              ` : ''}
-              ${!isPaid && hasPhone ? `
-                <button onclick="approveSpecificUser('${phone}')" class="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-all shadow-sm flex items-center justify-center gap-1">
-                  <i class="fa-solid fa-bolt"></i>
-                  <span>পেইড করুন</span>
+                <button onclick="openUserViewedModal('${phone}')" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 border border-slate-200">
+                  <i class="fa-solid fa-list-check text-emerald-600"></i>
+                  <span>সব দেখা বাসার বিবরণ ও কল স্ক্রিপ্ট</span>
                 </button>
               ` : ''}
             </div>
@@ -1085,12 +1164,23 @@
       tbody.innerHTML = users.map(u => {
         const isPaid = u.isPaid;
         const regDate = new Date(u.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' });
+        const viewCount = u.viewedCount || 0;
 
         return `
-          <tr class="hover:bg-slate-50 transition-colors">
-            <td class="py-3 px-4">
-              <div class="font-bold text-slate-900">${u.name}</div>
-              <div class="font-mono text-xs text-slate-500">${u.phoneNumber}</div>
+          <tr class="hover:bg-emerald-50/40 transition-colors">
+            <td class="py-3 px-4 cursor-pointer" onclick="openUserViewedModal('${u._id || u.id}')" title="দেখা বাসাগুলোর তালিকা দেখতে ক্লিক করুন">
+              <div class="font-bold text-slate-900 flex items-center gap-2">
+                <span class="hover:underline hover:text-emerald-700 font-bold">${u.name}</span>
+                ${viewCount > 0 ? `
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                    <i class="fa-solid fa-eye text-amber-600"></i> ${viewCount}টি বাসা দেখেছেন
+                  </span>
+                ` : `<span class="text-[10px] text-slate-400 font-normal">০টি দেখা</span>`}
+              </div>
+              <div class="font-mono text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                <i class="fa-solid fa-phone text-[10px] text-slate-400"></i>
+                <span>${u.phoneNumber}</span>
+              </div>
             </td>
             <td class="py-3 px-3">
               <span class="px-2 py-0.5 rounded-md text-[10px] font-bold ${u.role === 'bachelor_admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}">
@@ -1110,6 +1200,16 @@
             </td>
             <td class="py-3 px-4 text-right">
               <div class="flex items-center justify-end gap-1.5">
+                <button onclick="openUserViewedModal('${u._id || u.id}')" class="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1" title="দেখা বাসাগুলোর তালিকা দেখুন">
+                  <i class="fa-solid fa-list-check"></i>
+                  <span class="hidden sm:inline">দেখা বাসা</span> <span>(${viewCount})</span>
+                </button>
+                <a href="tel:${u.phoneNumber}" class="p-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs transition-all" title="কল দিন">
+                  <i class="fa-solid fa-phone"></i>
+                </a>
+                <a href="https://wa.me/88${u.phoneNumber}" target="_blank" class="p-1.5 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs transition-all" title="হোয়াটসঅ্যাপ">
+                  <i class="fa-brands fa-whatsapp"></i>
+                </a>
                 <button onclick="openResetModal('${u._id || u.id}', '${u.phoneNumber}')" class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs transition-all" title="পাসওয়ার্ড রিসেট">
                   <i class="fa-solid fa-key"></i>
                 </button>
@@ -1168,6 +1268,165 @@
         } catch (err) {
           showToast(err.message, true);
         }
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // USER VIEWED PROPERTIES MODAL LOGIC
+    // ─────────────────────────────────────────────────────────────
+    let currentViewedUserId = null;
+    let currentViewedUser = null;
+
+    async function openUserViewedModal(userIdOrPhone) {
+      currentViewedUserId = userIdOrPhone;
+      const modal = document.getElementById('userViewedModal');
+      modal.classList.remove('hidden');
+
+      document.getElementById('uvmUserName').textContent = 'লোড হচ্ছে...';
+      document.getElementById('uvmUserPhone').textContent = typeof userIdOrPhone === 'string' && userIdOrPhone.length === 11 ? userIdOrPhone : '';
+      document.getElementById('uvmPropertiesList').innerHTML = `
+        <div class="py-12 text-center text-slate-400">
+          <i class="fa-solid fa-spinner animate-spin text-2xl mb-2 text-emerald-600"></i>
+          <p class="font-medium text-xs">ইউজারের দেখা বাসাগুলোর বিবরণ ও বাড়িওয়ালার নম্বর লোড হচ্ছে...</p>
+        </div>
+      `;
+
+      try {
+        const res = await apiCall(`/users/${userIdOrPhone}/viewed-properties`);
+        currentViewedUser = res.user;
+        renderUserViewedModal(res);
+      } catch (err) {
+        document.getElementById('uvmPropertiesList').innerHTML = `
+          <div class="py-8 text-center text-rose-500 font-bold text-xs">${err.message}</div>
+        `;
+      }
+    }
+
+    function closeUserViewedModal() {
+      currentViewedUserId = null;
+      currentViewedUser = null;
+      document.getElementById('userViewedModal').classList.add('hidden');
+    }
+
+    function renderUserViewedModal(data) {
+      const u = data.user;
+      const props = data.properties || [];
+
+      document.getElementById('uvmUserName').textContent = u.name || 'গ্রাহক';
+      document.getElementById('uvmUserPhone').textContent = u.phoneNumber || '';
+      document.getElementById('uvmUserRole').textContent = u.role || 'Seeker';
+
+      const paidBadge = document.getElementById('uvmPaidBadge');
+      if (u.isPaid) {
+        paidBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-emerald-500 text-white';
+        paidBadge.textContent = '✓ পেইড গ্রাহক';
+      } else {
+        paidBadge.className = 'px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-rose-500 text-white';
+        paidBadge.textContent = '✕ আনপেইড / ফ্রি';
+      }
+
+      // Set Call & WhatsApp Links
+      document.getElementById('uvmCallBtn').href = `tel:${u.phoneNumber}`;
+      document.getElementById('uvmWaBtn').href = `https://wa.me/88${u.phoneNumber}`;
+
+      // Footer toggle paid button
+      const toggleBtn = document.getElementById('uvmTogglePaidBtn');
+      if (u.isPaid) {
+        toggleBtn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700';
+        toggleBtn.innerHTML = '<i class="fa-solid fa-ban mr-1"></i> ফ্রি করুন (Cancel Paid)';
+      } else {
+        toggleBtn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800';
+        toggleBtn.innerHTML = '<i class="fa-solid fa-bolt mr-1"></i> পেইড আনলক করুন';
+      }
+
+      document.getElementById('uvmTotalViewsText').textContent = `মোট দেখা বাসা: ${props.length}টি`;
+
+      // Dynamic Call Script based on the areas viewed
+      const areas = Array.from(new Set(props.map(p => p.area).filter(Boolean)));
+      const areaText = areas.length ? areas.join(', ') : 'আপনার পছন্দের এলাকা';
+      document.getElementById('uvmCallScript').textContent = `"আসসালামু আলাইকুম ${u.name} ভাই/আপু, আপনি বাসাবন্ধু অ্যাপে ${areaText}-এর বাসাগুলো দেখেছিলেন। বাড়িওয়ালার সাথে কি কথা হয়েছে? বাসা পেয়েছেন কি না?"`;
+
+      const container = document.getElementById('uvmPropertiesList');
+      if (!props.length) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl p-8 text-center border border-slate-200 space-y-2">
+            <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
+              <i class="fa-solid fa-eye-slash"></i>
+            </div>
+            <h4 class="font-bold text-slate-700 text-sm">কোনো বাসা এখনো দেখেননি</h4>
+            <p class="text-xs text-slate-500">এই গ্রাহক অ্যাপে রেজিস্টার করেছেন কিন্তু এখনো কোনো বাড়িওয়ালার নম্বর আনলক বা ভিউ করেননি।</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = props.map((p, idx) => {
+        const landlordPhone = p.contactPhone || p.landlordPhone || '';
+        const isActive = p.isActive !== false;
+
+        return `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-3">
+            <div class="flex justify-between items-start gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="inline-block px-2.5 py-0.5 rounded-md text-xs font-mono font-extrabold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    #${p.propertyCode || 'N/A'}
+                  </span>
+                  <span class="text-xs font-bold text-slate-500">${idx + 1} নম্বর দেখা বাসা</span>
+                  <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-700'}">
+                    ${isActive ? 'সক্রিয় (Active)' : 'হাইড/ভাড়া শেষ'}
+                  </span>
+                </div>
+                <h4 class="font-bold text-slate-900 text-sm mt-1.5 leading-snug">${p.title}</h4>
+                <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                  <i class="fa-solid fa-location-dot text-rose-500 text-[11px]"></i>
+                  <span>${p.area}${p.subArea ? `, ${p.subArea}` : ''}</span>
+                </p>
+              </div>
+              <div class="text-right shrink-0">
+                <div class="font-mono font-bold text-emerald-700 text-base">
+                  ${p.rentPrice ? `${p.rentPrice}৳` : 'আলোচনা সাপেক্ষে'}
+                </div>
+                <span class="text-[10px] text-slate-400">ভাড়া</span>
+              </div>
+            </div>
+
+            ${p.description ? `
+              <div class="bg-slate-50 rounded-xl p-2.5 text-xs text-slate-600 border border-slate-100 leading-relaxed">
+                <strong class="text-slate-800 block text-[11px] mb-0.5">বাসার বিবরণ:</strong>
+                ${p.description}
+              </div>
+            ` : ''}
+
+            <!-- Landlord Info & Call Button -->
+            <div class="bg-slate-50/80 rounded-xl p-2.5 border border-slate-200 flex flex-wrap justify-between items-center gap-2 text-xs">
+              <div>
+                <span class="text-[11px] text-slate-500">বাড়িওয়ালা: <strong>${p.landlordName || 'বিজ্ঞাপনদাতা'}</strong></span>
+                <div class="font-mono font-bold text-slate-900 mt-0.5">${landlordPhone || 'নম্বর নেই'}</div>
+              </div>
+              ${landlordPhone ? `
+                <a href="tel:${landlordPhone}" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
+                  <i class="fa-solid fa-phone"></i>
+                  <span>বাড়িওয়ালাকে কল দিন</span>
+                </a>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function handleUvmTogglePaid() {
+      if (!currentViewedUserId) return;
+      try {
+        const idToToggle = currentViewedUser?._id || currentViewedUserId;
+        const res = await apiCall(`/users/${idToToggle}/toggle-paid`, 'POST');
+        showToast(res.message);
+        openUserViewedModal(currentViewedUserId);
+        fetchUsers();
+        fetchStats();
+      } catch (err) {
+        showToast(err.message, true);
       }
     }
 

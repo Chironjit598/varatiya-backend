@@ -69,6 +69,24 @@ class AdminController {
   }
 
   /**
+   * API: User Management - Get properties viewed by a user
+   * GET /admin/api/users/:id/viewed-properties
+   */
+  async getUserViewedProperties(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await adminService.getUserViewedProperties(id);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'User viewed properties loaded',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * API: User Management - Toggle Paid Status
    * POST /admin/api/users/:id/toggle-paid
    */

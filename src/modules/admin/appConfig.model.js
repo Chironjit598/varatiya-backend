@@ -53,3 +53,4 @@ const appConfigSchema = new mongoose.Schema(
 );
 
 module.exports = mongoose.model('AppConfig', appConfigSchema);
+
