@@ -2,11 +2,13 @@ const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const env = require('./env');
 
+// Cloudinary is only used if explicitly enabled via ENABLE_CLOUDINARY=true.
+// Otherwise, the backend uses its built-in resilient diskStorage and static file serving on /uploads.
 const isCloudinaryConfigured = Boolean(
+  process.env.ENABLE_CLOUDINARY === 'true' &&
   env.CLOUDINARY_CLOUD_NAME &&
   env.CLOUDINARY_API_KEY &&
-  env.CLOUDINARY_API_SECRET &&
-  env.CLOUDINARY_API_KEY !== '361684811847588'
+  env.CLOUDINARY_API_SECRET
 );
 
 if (isCloudinaryConfigured) {
