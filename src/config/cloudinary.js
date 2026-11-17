@@ -5,7 +5,8 @@ const env = require('./env');
 const isCloudinaryConfigured = Boolean(
   env.CLOUDINARY_CLOUD_NAME &&
   env.CLOUDINARY_API_KEY &&
-  env.CLOUDINARY_API_SECRET
+  env.CLOUDINARY_API_SECRET &&
+  env.CLOUDINARY_API_KEY !== '361684811847588'
 );
 
 if (isCloudinaryConfigured) {
