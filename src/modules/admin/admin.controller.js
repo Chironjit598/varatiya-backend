@@ -1,5 +1,6 @@
 const path = require('path');
 const adminService = require('./admin.service');
+const propertyService = require('../property/property.service');
 const ApiResponse = require('../../utils/apiResponse');
 
 class AdminController {
@@ -427,6 +428,46 @@ class AdminController {
         statusCode: 200,
         message: 'Push logs loaded',
         data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+  /**
+   * API: Create a new property from admin panel
+   * POST /admin/api/properties
+   */
+  async createProperty(req, res, next) {
+    try {
+      const adminUserId = req.admin.id;
+      const adminUser = {
+        _id: req.admin.id,
+        name: req.admin.phoneNumber === '01306070598' ? 'Chironjit Chandra Roy (Admin)' : 'Minhas (Manager)',
+        phoneNumber: req.admin.phoneNumber,
+        role: req.admin.role,
+      };
+      const result = await propertyService.createProperty(adminUserId, adminUser, req.body);
+      return ApiResponse.success(res, {
+        statusCode: 201,
+        message: `বিজ্ঞাপন সফলভাবে তৈরি হয়েছে! কোড: #${result.propertyCode}`,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Get comprehensive Bangladesh / Dhaka locations
+   * GET /admin/api/locations
+   */
+  async getLocations(req, res, next) {
+    try {
+      const locations = require('../../config/bangladeshLocations.json');
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'Locations loaded',
+        data: locations,
       });
     } catch (error) {
       next(error);

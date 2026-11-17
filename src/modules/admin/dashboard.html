@@ -129,11 +129,14 @@
 
           <!-- Logged in Admin Profile Badge -->
           <div class="hidden md:flex items-center gap-2 pl-2 border-l border-slate-200 text-xs">
-            <div class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
+            <div id="headerAdminAvatar" class="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold flex items-center justify-center text-xs">
               এড
             </div>
             <div class="leading-tight text-left">
-              <p class="font-bold text-slate-800" id="headerAdminName">Chironjit Chandra Roy</p>
+              <div class="flex items-center gap-1.5">
+                <p class="font-bold text-slate-800" id="headerAdminName">Chironjit Chandra Roy</p>
+                <span id="headerAdminRoleBadge" class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">👑 এডমিন</span>
+              </div>
               <p class="text-[10px] text-slate-500 font-mono" id="headerAdminPhone">01306070598</p>
             </div>
           </div>
@@ -205,7 +208,7 @@
               <p class="text-xs text-slate-300 mt-0.5" id="overviewModeDesc">মোডের বিবরণ লোড হচ্ছে...</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 w-full md:w-auto">
+          <div class="flex items-center gap-2 w-full md:w-auto" id="overviewModeButtons">
             <button onclick="toggleMode('live')" id="btnSetLive" class="flex-1 md:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all border border-emerald-500/50 bg-emerald-600 hover:bg-emerald-500 text-white">
               🟢 লাইভ মোড (৫০৳ ফি)
             </button>
@@ -488,11 +491,17 @@
               <p class="text-xs text-slate-500">৬ ডিজিটের পোস্ট আইডি, এলাকা বা মোবাইল দিয়ে সার্চ, হাইড/আনহাইড ও ডিলেট</p>
             </div>
 
-            <!-- Property Filters -->
-            <div class="flex items-center gap-1.5 text-xs font-bold rounded-xl bg-slate-100 p-1">
-              <button onclick="filterProps('all')" id="btnPropFilter-all" class="px-3 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm transition-all">সব বিজ্ঞাপন</button>
-              <button onclick="filterProps('active')" id="btnPropFilter-active" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all">সক্রিয় (Active)</button>
-              <button onclick="filterProps('hidden')" id="btnPropFilter-hidden" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all">হাইড করা (Hidden)</button>
+            <!-- Property Filters & Add Post Button -->
+            <div class="flex items-center gap-2 flex-wrap">
+              <div class="flex items-center gap-1.5 text-xs font-bold rounded-xl bg-slate-100 p-1">
+                <button onclick="filterProps('all')" id="btnPropFilter-all" class="px-3 py-1.5 rounded-lg bg-white text-emerald-700 shadow-sm transition-all">সব বিজ্ঞাপন</button>
+                <button onclick="filterProps('active')" id="btnPropFilter-active" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all">সক্রিয় (Active)</button>
+                <button onclick="filterProps('hidden')" id="btnPropFilter-hidden" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition-all">হাইড করা (Hidden)</button>
+              </div>
+              <button onclick="openAddPropertyModal()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md shadow-emerald-200 transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-plus"></i>
+                <span>নতুন বিজ্ঞাপন যোগ করুন</span>
+              </button>
             </div>
           </div>
 
@@ -923,6 +932,240 @@
     </div>
   </div>
 
+  <!-- 2.5 ADD PROPERTY MODAL -->
+  <div id="addPropertyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] flex flex-col border border-slate-100 animate-in fade-in zoom-in duration-200 overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-emerald-50 via-teal-50 to-white">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-lg shadow-md shadow-emerald-200">
+            <i class="fa-solid fa-house-chimney-medical"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-black text-slate-800">নতুন বিজ্ঞাপন যোগ করুন</h3>
+            <p class="text-xs text-slate-500">অ্যাপের সঠিক লোকেশন ও বিবরণ দিয়ে ৬ ডিজিটের পোস্ট কোডসহ বিজ্ঞাপন তৈরি করুন</p>
+          </div>
+        </div>
+        <button onclick="closeAddPropertyModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Form) -->
+      <form id="addPropertyForm" onsubmit="submitAddProperty(event)" class="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+        
+        <!-- SECTION 1: বেসিক তথ্য -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-circle-info text-emerald-600"></i>
+            <span>১. মূল বিবরণ (Basic Info)</span>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">বিজ্ঞাপনের শিরোনাম <span class="text-rose-500">*</span></label>
+            <input type="text" id="propTitle" required placeholder="যেমন: মিরপুর ১০ এ ৩ রুমের খোলামেলা ফ্ল্যাট ভাড়া হবে" 
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ভাড়ার ধরন (Rent Type) <span class="text-rose-500">*</span></label>
+              <select id="propRentType" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+                <option value="entire_house">সম্পূর্ণ বাড়ি / ফ্ল্যাট (Entire House)</option>
+                <option value="single_room">একক রুম (Single Room)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">কাদের জন্য প্রযোজ্য (Tenant Type) <span class="text-rose-500">*</span></label>
+              <select id="propTenantType" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+                <option value="Family">পরিবার (Family)</option>
+                <option value="Bachelor (Male)">ছাত্র / ব্যাচেলর ছেলে (Bachelor Male)</option>
+                <option value="Bachelor (Female)">ছাত্রী / চাকুরিজীবী মেয়ে (Bachelor Female)</option>
+                <option value="Any">যে কেউ (Any)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">কোন মাস থেকে ভাড়া হবে <span class="text-rose-500">*</span></label>
+              <input type="text" id="propAvailableMonth" value="চলতি মাস থেকে" placeholder="যেমন: চলতি মাস থেকে / আগামী ১লা তারিখ" 
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: এলাকা ও অবস্থান (অ্যাপের ৯৮টি এলাকার সাথে লিঙ্কড) -->
+        <div class="space-y-3 bg-emerald-50/40 p-4 rounded-2xl border border-emerald-200/60">
+          <div class="flex items-center gap-2 pb-1 border-b border-emerald-200/80 font-bold text-emerald-900">
+            <i class="fa-solid fa-location-dot text-emerald-600"></i>
+            <span>২. অবস্থান ও এলাকা নির্বাচন (Location - অ্যাপ অনুযায়ী)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">মূল এলাকা (Area) <span class="text-rose-500">*</span></label>
+              <select id="propAreaSelect" onchange="onAreaChange()" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800">
+                <option value="">-- এলাকা লোড হচ্ছে... --</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">সাব-এলাকা / সেক্টর / রোড (Sub-Area) <span class="text-rose-500">*</span></label>
+              <select id="propSubAreaSelect" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800">
+                <option value="">-- প্রথমে এলাকা নির্বাচন করুন --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ফ্লোর / তলা (Floor Level)</label>
+              <input type="text" id="propFloorLevel" placeholder="যেমন: ৪র্থ তলা (লিফট আছে)" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block font-bold text-slate-700 mb-1">বিস্তারিত ঠিকানা <span class="text-rose-500">*</span></label>
+              <input type="text" id="propDetailedAddress" required placeholder="যেমন: রোড নং ৪, বাড়ি নং ২৫/বি, মিরপুর ১০" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 3: রুম ও সাইজ স্পেক্স -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-bed text-indigo-600"></i>
+            <span>৩. রুম ও ফ্লাট স্পেসিফিকেশন (Rooms Specs)</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বেডরুম সংখ্যা</label>
+              <input type="number" id="propBedrooms" value="2" min="1" max="20" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-center font-bold">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বাথরুম সংখ্যা</label>
+              <input type="number" id="propBathrooms" value="2" min="0" max="10" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-center font-bold">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বারান্দা সংখ্যা</label>
+              <input type="number" id="propBalconies" value="1" min="0" max="10" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-center font-bold">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 4: ভাড়া ও পেমেন্ট -->
+        <div class="space-y-3 bg-amber-50/40 p-4 rounded-2xl border border-amber-200/60">
+          <div class="flex items-center gap-2 pb-1 border-b border-amber-200/80 font-bold text-amber-900">
+            <i class="fa-solid fa-bangladeshi-taka-sign text-amber-600"></i>
+            <span>৪. ভাড়া ও পেমেন্ট (Rent & Pricing)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">মাসিক ভাড়া (টাকা ৳) <span class="text-rose-500">*</span></label>
+              <input type="number" id="propRentPrice" value="15000" min="0" placeholder="যেমন: ১৫০০০" 
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-800 text-sm">
+            </div>
+            <div class="pt-4 sm:pt-6">
+              <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700">
+                <input type="checkbox" id="propIsNegotiable" onchange="togglePropPriceNegotiable()" class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4">
+                <span>ভাড়া আলোচনা সাপেক্ষে (Negotiable)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 5: বাড়িওয়ালা / যোগাযোগের তথ্য -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-address-book text-emerald-600"></i>
+            <span>৫. বাড়িওয়ালা / যোগাযোগের তথ্য (Contact Info)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বাড়িওয়ালার নাম <span class="text-rose-500">*</span></label>
+              <input type="text" id="propLandlordName" required placeholder="যেমন: মোঃ রফিকুল ইসলাম" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">যোগাযোগের মোবাইল নম্বর <span class="text-rose-500">*</span></label>
+              <input type="tel" id="propLandlordPhone" required placeholder="যেমন: 01712345678" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono font-bold">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 6: সুযোগ-সুবিধা ও বিবরণ -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-list-check text-purple-600"></i>
+            <span>৬. সুযোগ-সুবিধা ও বিবরণ (Amenities & Description)</span>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1.5">সুযোগ-সুবিধা সমূহ:</label>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="amenity_Gas" value="Gas" class="rounded text-emerald-600 w-3.5 h-3.5">
+                <span>গ্যাস (Gas)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="amenity_Lift" value="Lift" class="rounded text-emerald-600 w-3.5 h-3.5">
+                <span>লিফট (Lift)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="amenity_Generator" value="Generator" class="rounded text-emerald-600 w-3.5 h-3.5">
+                <span>জেনারেটর</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="amenity_WiFi" value="WiFi" class="rounded text-emerald-600 w-3.5 h-3.5">
+                <span>ওয়াইফাই (WiFi)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="amenity_CCTV" value="CCTV" class="rounded text-emerald-600 w-3.5 h-3.5">
+                <span>সিসিটিভি</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="amenity_Parking" value="Parking" class="rounded text-emerald-600 w-3.5 h-3.5">
+                <span>পার্কিং</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="amenity_Security" value="Security" class="rounded text-emerald-600 w-3.5 h-3.5">
+                <span>নিরাপত্তা গার্ড</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">বাসার বিস্তারিত বিবরণ (Description)</label>
+            <textarea id="propDescription" rows="3" placeholder="বাসার পরিবেশ, সার্বক্ষণিক সুবিধা বা কোনো বিশেষ নিয়মাবলী থাকলে লিখুন..." 
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"></textarea>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">ছবির অনলাইন লিংক (Image URLs - প্রতি লাইনে একটি, ঐচ্ছিক)</label>
+            <textarea id="propImageUrls" rows="2" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg" 
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+            <p class="text-[10px] text-slate-400 mt-1">ছবি না দিলে অ্যাপ স্বয়ংক্রিয়ভাবে ডিফল্ট সুন্দর ব্যানার প্রদর্শন করবে।</p>
+          </div>
+        </div>
+
+        <!-- Form Submit & Cancel Buttons -->
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+          <button type="button" onclick="closeAddPropertyModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold transition-all">
+            বাতিল
+          </button>
+          <button type="submit" id="btnSubmitAddProperty" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-lg shadow-emerald-200 transition-all flex items-center gap-2">
+            <i class="fa-solid fa-check"></i>
+            <span>বিজ্ঞাপন পোস্ট করুন (স্বয়ংক্রিয় ৬ ডিজিট কোড সহ)</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
   <!-- 3. ACTION CONFIRMATION MODAL (Replaces window.confirm & prompt) -->
   <div id="customConfirmModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 hidden">
     <div class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
@@ -1158,10 +1401,38 @@
         document.getElementById('loginOverlay').classList.add('hidden');
         if (currentAdmin) {
           document.getElementById('headerAdminName').textContent = currentAdmin.name || 'Admin';
-          document.getElementById('headerAdminPhone').textContent = currentAdmin.phoneNumber || '01306070598';
+          document.getElementById('headerAdminPhone').textContent = currentAdmin.phoneNumber || '';
+
+          const isManager = currentAdmin.role === 'manager' || currentAdmin.phoneNumber !== '01306070598';
+          const roleBadge = document.getElementById('headerAdminRoleBadge');
+          const settingsNav = document.getElementById('nav-settings');
+          const modeContainer = document.getElementById('overviewModeButtons');
+
+          if (isManager) {
+            if (roleBadge) {
+              roleBadge.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200';
+              roleBadge.textContent = '👔 ম্যানেজার';
+            }
+            if (settingsNav) settingsNav.style.display = 'none';
+            if (modeContainer) {
+              modeContainer.innerHTML = `
+                <div class="px-3.5 py-2 rounded-xl bg-slate-800/90 border border-slate-700 text-amber-300 text-xs font-bold flex items-center gap-2 shadow-inner">
+                  <i class="fa-solid fa-lock text-amber-400"></i>
+                  <span>মোড পরিবর্তন শুধুমাত্র প্রধান এডমিনের জন্য সংরক্ষিত</span>
+                </div>
+              `;
+            }
+          } else {
+            if (roleBadge) {
+              roleBadge.className = 'text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200';
+              roleBadge.textContent = '👑 প্রধান এডমিন';
+            }
+            if (settingsNav) settingsNav.style.display = 'flex';
+          }
         }
         fetchAllData();
         startAutoRefresh();
+        loadLocations();
       }
     }
 
@@ -1279,6 +1550,14 @@
     const tabs = ['overview', 'limits', 'users', 'properties', 'reports', 'notifications', 'settings'];
 
     function switchTab(target) {
+      if (target === 'settings' && currentAdmin && (currentAdmin.role === 'manager' || currentAdmin.phoneNumber !== '01306070598')) {
+        showStatusPopup({
+          title: 'অনুমতি নেই ⛔',
+          message: 'ম্যানেজার একাউন্ট থেকে অ্যাপ সেটিংস ও মোড পরিবর্তনের অনুমতি নেই। শুধুমাত্র প্রধান এডমিন এই এক্সেস পাবেন।',
+          type: 'error'
+        });
+        return;
+      }
       tabs.forEach(t => {
         const btn = document.getElementById(`nav-${t}`);
         const view = document.getElementById(`view-${t}`);
@@ -1309,10 +1588,12 @@
       if (spinner) spinner.classList.add('animate-spin');
 
       try {
-        await Promise.all([
-          fetchStats(),
-          fetchConfig(),
-        ]);
+        const isManager = currentAdmin && (currentAdmin.role === 'manager' || currentAdmin.phoneNumber !== '01306070598');
+        const tasks = [fetchStats()];
+        if (!isManager) {
+          tasks.push(fetchConfig());
+        }
+        await Promise.all(tasks);
         if (isManual) showToast('ডাটা সফলভাবে রিফ্রেশ করা হয়েছে');
       } catch (err) {
         if (isManual) showToast(err.message, true);
@@ -1394,6 +1675,14 @@
     }
 
     async function toggleMode(targetMode) {
+      if (currentAdmin && (currentAdmin.role === 'manager' || currentAdmin.phoneNumber !== '01306070598')) {
+        showStatusPopup({
+          title: 'অনুমতি নেই ⛔',
+          message: 'ম্যানেজার একাউন্ট থেকে অ্যাপ মোড পরিবর্তনের অনুমতি নেই। শুধুমাত্র প্রধান এডমিন মোড পরিবর্তন করতে পারবেন।',
+          type: 'error'
+        });
+        return;
+      }
       const isLive = targetMode === 'live';
       const confirmed = await showConfirmDialog({
         title: isLive ? 'লাইভ মোড সক্রিয়করণ' : 'রিভিউ মোড সক্রিয়করণ',
@@ -2226,6 +2515,177 @@
     }
 
     // ─────────────────────────────────────────────────────────────
+    // PROPERTY CREATION & LOCATIONS
+    // ─────────────────────────────────────────────────────────────
+    let bangladeshLocations = {};
+
+    async function loadLocations() {
+      try {
+        const res = await apiCall('/locations');
+        bangladeshLocations = res || {};
+        populateAreaDropdown();
+      } catch (err) {
+        console.error('Failed to load locations', err);
+      }
+    }
+
+    function populateAreaDropdown() {
+      const areaSelect = document.getElementById('propAreaSelect');
+      if (!areaSelect) return;
+      const areas = Object.keys(bangladeshLocations).sort();
+      areaSelect.innerHTML = '<option value="">-- এলাকা নির্বাচন করুন --</option>' + 
+        areas.map(a => `<option value="${a}">${a}</option>`).join('');
+      onAreaChange();
+    }
+
+    function onAreaChange() {
+      const areaSelect = document.getElementById('propAreaSelect');
+      const subAreaSelect = document.getElementById('propSubAreaSelect');
+      if (!areaSelect || !subAreaSelect) return;
+
+      const selectedArea = areaSelect.value;
+      if (!selectedArea || !bangladeshLocations[selectedArea]) {
+        subAreaSelect.innerHTML = '<option value="">-- প্রথমে এলাকা নির্বাচন করুন --</option>';
+        return;
+      }
+
+      const subAreas = bangladeshLocations[selectedArea];
+      subAreaSelect.innerHTML = '<option value="">-- সাব-এলাকা নির্বাচন করুন --</option>' + 
+        subAreas.map(sa => `<option value="${sa}">${sa}</option>`).join('');
+    }
+
+    function openAddPropertyModal() {
+      if (Object.keys(bangladeshLocations).length === 0) {
+        loadLocations();
+      }
+      document.getElementById('addPropertyForm').reset();
+      document.getElementById('propIsNegotiable').checked = false;
+      document.getElementById('propRentPrice').disabled = false;
+      document.getElementById('addPropertyModal').classList.remove('hidden');
+    }
+
+    function closeAddPropertyModal() {
+      document.getElementById('addPropertyModal').classList.add('hidden');
+    }
+
+    function togglePropPriceNegotiable() {
+      const isNeg = document.getElementById('propIsNegotiable').checked;
+      const priceInput = document.getElementById('propRentPrice');
+      if (isNeg) {
+        priceInput.value = '0';
+        priceInput.placeholder = 'আলোচনা সাপেক্ষে (০)';
+      } else {
+        priceInput.placeholder = 'যেমন: ১২০০০';
+      }
+    }
+
+    async function submitAddProperty(e) {
+      e.preventDefault();
+      const title = document.getElementById('propTitle').value.trim();
+      const rentType = document.getElementById('propRentType').value;
+      const tenantType = document.getElementById('propTenantType').value;
+      const area = document.getElementById('propAreaSelect').value;
+      const subArea = document.getElementById('propSubAreaSelect').value;
+      const detailedAddress = document.getElementById('propDetailedAddress').value.trim();
+      const rentPrice = Number(document.getElementById('propRentPrice').value) || 0;
+      const isNegotiable = document.getElementById('propIsNegotiable').checked;
+      const availableMonth = document.getElementById('propAvailableMonth').value.trim() || 'চলতি মাস থেকে';
+      const bedrooms = Number(document.getElementById('propBedrooms').value) || 1;
+      const bathrooms = Number(document.getElementById('propBathrooms').value) || 1;
+      const balconies = Number(document.getElementById('propBalconies').value) || 0;
+      const floorLevel = document.getElementById('propFloorLevel').value.trim();
+      const landlordName = document.getElementById('propLandlordName').value.trim();
+      const landlordPhone = document.getElementById('propLandlordPhone').value.trim();
+      const description = document.getElementById('propDescription').value.trim();
+      const imageUrlsRaw = document.getElementById('propImageUrls').value.trim();
+      
+      const imageUrls = imageUrlsRaw 
+        ? imageUrlsRaw.split('\n').map(s => s.trim()).filter(Boolean)
+        : [];
+
+      const amenities = [];
+      ['Gas', 'Lift', 'Generator', 'WiFi', 'CCTV', 'Parking', 'Security'].forEach(a => {
+        const el = document.getElementById(`amenity_${a}`);
+        if (el && el.checked) amenities.push(el.value);
+      });
+
+      if (!title) {
+        showToast('অনুগ্রহ করে বিজ্ঞাপনের শিরোনাম লিখুন', true);
+        return;
+      }
+      if (!area || !subArea) {
+        showToast('অনুগ্রহ করে এলাকা ও সাব-এলাকা নির্বাচন করুন', true);
+        return;
+      }
+      if (!detailedAddress) {
+        showToast('অনুগ্রহ করে বিস্তারিত ঠিকানা দিন', true);
+        return;
+      }
+      if (!landlordName || !landlordPhone) {
+        showToast('অনুগ্রহ করে বাড়িওয়ালার নাম ও ফোন নম্বর দিন', true);
+        return;
+      }
+
+      const confirmed = await showConfirmDialog({
+        title: 'নতুন বিজ্ঞাপন পোস্ট করবেন?',
+        message: `আপনি কি <strong>"${title}"</strong> (${area}, ${subArea}) বিজ্ঞাপনটি অ্যাপে সরাসরি প্রকাশ করতে চান? একটি অনন্য ৬ ডিজিটের পোস্ট কোড তৈরি হবে।`,
+        icon: 'fa-house-circle-check',
+        iconBg: 'bg-emerald-100 text-emerald-700',
+        confirmBtnText: 'হ্যাঁ, পোস্ট করুন',
+        confirmBtnClass: 'bg-emerald-600 hover:bg-emerald-700 text-white'
+      });
+      if (!confirmed) return;
+
+      const submitBtn = document.getElementById('btnSubmitAddProperty');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> পোস্ট হচ্ছে...';
+
+      try {
+        const payload = {
+          title,
+          rentType,
+          tenantType,
+          tenantTypes: [tenantType],
+          area,
+          subArea,
+          detailedAddress,
+          rentPrice,
+          isNegotiable,
+          availableMonth,
+          bedrooms,
+          bathrooms,
+          balconies,
+          floorLevel,
+          landlordName,
+          landlordPhone,
+          contactPhone: landlordPhone,
+          description,
+          imageUrls,
+          amenities,
+        };
+
+        const res = await apiCall('/properties', 'POST', payload);
+        closeAddPropertyModal();
+        showStatusPopup({
+          title: 'বিজ্ঞাপন প্রকাশিত হয়েছে! 🎉',
+          message: `বিজ্ঞাপন সফলভাবে তৈরি হয়েছে!<br>পোস্ট কোড: <strong class="text-emerald-700 font-mono text-base">#${res.propertyCode}</strong><br>শিরোনাম: <strong>${res.title}</strong>`,
+          type: 'success'
+        });
+        fetchProperties();
+        fetchStats();
+      } catch (err) {
+        showStatusPopup({
+          title: 'বিজ্ঞাপন প্রকাশ ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-check"></i> <span>বিজ্ঞাপন পোস্ট করুন (স্বয়ংক্রিয় ৬ ডিজিট কোড সহ)</span>';
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // PROPERTY / POST MANAGEMENT
     // ─────────────────────────────────────────────────────────────
     function debouncePropSearch() {
@@ -2494,6 +2954,9 @@
   // APP CONFIGURATION & SETTINGS
   // ─────────────────────────────────────────────────────────────
   async function fetchConfig() {
+    if (currentAdmin && (currentAdmin.role === 'manager' || currentAdmin.phoneNumber !== '01306070598')) {
+      return;
+    }
     try {
       const cfg = await apiCall('/config');
       appConfig = cfg;
@@ -2511,6 +2974,14 @@
 
   async function handleSaveConfig(e) {
     e.preventDefault();
+    if (currentAdmin && (currentAdmin.role === 'manager' || currentAdmin.phoneNumber !== '01306070598')) {
+      showStatusPopup({
+        title: 'অনুমতি নেই ⛔',
+        message: 'ম্যানেজার একাউন্ট থেকে সেটিংস পরিবর্তনের অনুমতি নেই।',
+        type: 'error'
+      });
+      return;
+    }
     const btn = document.getElementById('btnSaveConfig');
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> সেভ হচ্ছে...';

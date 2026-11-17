@@ -44,5 +44,15 @@ const requireAdminAuth = (req, res, next) => {
   }
 };
 
-module.exports = { requireAdminAuth };
+const requireSuperAdminAuth = (req, res, next) => {
+  if (req.admin?.role === 'manager' || req.admin?.phoneNumber !== '01306070598') {
+    return ApiResponse.error(res, {
+      statusCode: 403,
+      message: 'নিষিদ্ধ: শুধুমাত্র প্রধান এডমিন (Super Admin) অ্যাপ সেটিংস ও মোড পরিবর্তন করতে পারবেন।',
+    });
+  }
+  next();
+};
+
+module.exports = { requireAdminAuth, requireSuperAdminAuth };
 

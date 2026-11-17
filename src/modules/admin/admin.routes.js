@@ -1,6 +1,6 @@
 const express = require('express');
 const adminController = require('./admin.controller');
-const { requireAdminAuth } = require('./admin.middleware');
+const { requireAdminAuth, requireSuperAdminAuth } = require('./admin.middleware');
 
 const router = express.Router();
 
@@ -16,7 +16,7 @@ router.use('/api', requireAdminAuth);
 
 // Overview Stats & Quick Actions
 router.get('/api/stats', adminController.getStats.bind(adminController));
-router.post('/api/mode', adminController.setMode.bind(adminController));
+router.post('/api/mode', requireSuperAdminAuth, adminController.setMode.bind(adminController));
 router.post('/api/approve-user', adminController.approveUser.bind(adminController));
 
 // User Management
@@ -31,10 +31,12 @@ router.delete('/api/users/:id', adminController.deleteUser.bind(adminController)
 router.get('/api/crm/leads', adminController.getCrmLeads.bind(adminController));
 router.post('/api/crm/lead', adminController.saveCrmLead.bind(adminController));
 
-// Property / Post Management
+// Property / Post Management & Creation
 router.get('/api/properties', adminController.getProperties.bind(adminController));
+router.post('/api/properties', adminController.createProperty.bind(adminController));
 router.post('/api/properties/:id/toggle-active', adminController.togglePropertyActive.bind(adminController));
 router.delete('/api/properties/:id', adminController.deleteProperty.bind(adminController));
+router.get('/api/locations', adminController.getLocations.bind(adminController));
 
 // Reports Management
 router.get('/api/reports', adminController.getReports.bind(adminController));
@@ -45,8 +47,8 @@ router.get('/api/notifications/audience-count', adminController.getAudienceCount
 router.post('/api/notifications/send-push', adminController.sendPushNotification.bind(adminController));
 router.get('/api/notifications/push-logs', adminController.getPushLogs.bind(adminController));
 
-// App Configuration
-router.get('/api/config', adminController.getConfig.bind(adminController));
-router.post('/api/config', adminController.updateConfig.bind(adminController));
+// App Configuration (Super Admin Only)
+router.get('/api/config', requireSuperAdminAuth, adminController.getConfig.bind(adminController));
+router.post('/api/config', requireSuperAdminAuth, adminController.updateConfig.bind(adminController));
 
 module.exports = router;
