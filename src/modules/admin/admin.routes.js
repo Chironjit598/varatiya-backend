@@ -40,6 +40,11 @@ router.delete('/api/properties/:id', adminController.deleteProperty.bind(adminCo
 router.get('/api/reports', adminController.getReports.bind(adminController));
 router.post('/api/reports/:id/resolve', adminController.resolveReport.bind(adminController));
 
+// Push Notifications Broadcast & Logs
+router.get('/api/notifications/audience-count', adminController.getAudienceCount.bind(adminController));
+router.post('/api/notifications/send-push', adminController.sendPushNotification.bind(adminController));
+router.get('/api/notifications/push-logs', adminController.getPushLogs.bind(adminController));
+
 // App Configuration
 router.get('/api/config', adminController.getConfig.bind(adminController));
 router.post('/api/config', adminController.updateConfig.bind(adminController));

@@ -171,6 +171,11 @@
             <span>রিপোর্ট ও অভিযোগ</span>
             <span id="tabReportBadge" class="bg-orange-100 text-orange-700 text-[10px] font-black px-1.5 py-0.5 rounded-full">0</span>
           </button>
+          <button onclick="switchTab('notifications')" id="nav-notifications" class="tab-inactive px-3 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap transition-all">
+            <i class="fa-solid fa-paper-plane text-purple-600"></i>
+            <span>পুশ নোটিফিকেশন</span>
+            <span id="tabNotifBadge" class="bg-purple-100 text-purple-700 text-[10px] font-black px-1.5 py-0.5 rounded-full">FCM</span>
+          </button>
           <button onclick="switchTab('settings')" id="nav-settings" class="tab-inactive px-3 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap transition-all">
             <i class="fa-solid fa-sliders text-teal-600"></i>
             <span>অ্যাপ সেটিংস</span>
@@ -531,7 +536,150 @@
       </section>
 
       <!-- ═══════════════════════════════════════════════════════════ -->
-      <!-- TAB 6: APP CONFIG & SETTINGS                               -->
+      <!-- TAB 6: PUSH NOTIFICATIONS BROADCAST                        -->
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <section id="view-notifications" class="space-y-6 hidden">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Column 1 & 2: Push Composer Form -->
+          <div class="lg:col-span-2 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div class="flex flex-wrap justify-between items-start gap-2 border-b border-slate-100 pb-4">
+              <div>
+                <h2 class="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+                  <i class="fa-solid fa-paper-plane text-purple-600"></i>
+                  <span>পুশ নোটিফিকেশন পাঠান (Push Broadcast)</span>
+                </h2>
+                <p class="text-xs text-slate-500 mt-1">টার্গেট গ্রাহকদের মোবাইল ফোনে সরাসরি নোটিফিকেশন পাঠিয়ে এলার্ট বা অফার দিন</p>
+              </div>
+              <span id="pushFcmStatusBadge" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-100 text-purple-700 flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-circle text-[8px] animate-pulse"></i>
+                <span>FCM ক্লাউড রেডি</span>
+              </span>
+            </div>
+
+            <!-- Pre-made Templates Bar -->
+            <div>
+              <span class="block text-[11px] font-bold text-slate-600 mb-2 uppercase tracking-wider">দ্রুত টেমপ্লেট নির্বাচন করুন (Quick Templates):</span>
+              <div class="flex flex-wrap gap-2 text-xs">
+                <button type="button" onclick="applyPushTemplate('new_house')" class="px-3 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold transition-all flex items-center gap-1">
+                  🏠 নতুন বাসা এলার্ট
+                </button>
+                <button type="button" onclick="applyPushTemplate('limit_offer')" class="px-3 py-1.5 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold transition-all flex items-center gap-1">
+                  ⚠️ লিমিট শেষ ছাড়
+                </button>
+                <button type="button" onclick="applyPushTemplate('special_offer')" class="px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold transition-all flex items-center gap-1">
+                  🎁 ৫০৳ আনলিমিটেড অফার
+                </button>
+                <button type="button" onclick="applyPushTemplate('follow_up')" class="px-3 py-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold transition-all flex items-center gap-1">
+                  📞 বাসা পেয়েছেন কি না?
+                </button>
+              </div>
+            </div>
+
+            <form id="formPushNotification" onsubmit="handleSendPush(event)" class="space-y-4">
+              <!-- Target Audience Filter -->
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">
+                  কাদের কাছে পাঠাবেন? (Target Audience Filter)
+                </label>
+                <select id="pushAudienceSelect" onchange="onAudienceFilterChange()" class="w-full text-xs font-bold py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="ALL">📢 সকল গ্রাহক ও ডিভাইস (সকলের কাছে যাবে)</option>
+                  <option value="TODAY">🆕 আজকে যারা একাউন্ট খুলেছে (আজকের নতুন ইউজার)</option>
+                  <option value="LIMIT_REACHED">⚠️ যাদের ফ্রি লিমিট শেষ (৩/৩ ভিউ শেষ হওয়া গ্রাহক)</option>
+                  <option value="PAID">✓ শুধুমাত্র পেইড মেম্বার (যাদের ৫০৳ আনলক রয়েছে)</option>
+                  <option value="UNPAID">⚪ শুধুমাত্র ফ্রি / আনপেইড গ্রাহক</option>
+                  <option value="SPECIFIC_PHONE">📱 নির্দিষ্ট কোনো ইউজার (মোবাইল নম্বর দিয়ে)</option>
+                </select>
+              </div>
+
+              <!-- Specific Phone Input (Hidden by default) -->
+              <div id="pushSpecificPhoneContainer" class="hidden">
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">গ্রাহকের ১১ ডিজিটের মোবাইল নম্বর</label>
+                <input type="text" id="pushSpecificPhoneInput" oninput="debounceAudienceCount()" placeholder="যেমন: 01765800739" class="w-full text-xs font-mono py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500">
+              </div>
+
+              <!-- Dynamic Recipient Preview Pill -->
+              <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center text-xs">
+                <div class="flex items-center gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                  <span class="font-bold text-slate-700">টার্গেট গ্রাহক ডিভাইস:</span>
+                  <span id="pushAudienceEstimate" class="font-mono font-black text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-0.5 rounded-lg">হিসাব হচ্ছে...</span>
+                </div>
+                <button type="button" onclick="fetchAudienceCount()" class="text-[11px] text-purple-600 hover:underline font-bold flex items-center gap-1">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                  <span>রিফ্রেশ</span>
+                </button>
+              </div>
+
+              <!-- Title Input -->
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">নোটিফিকেশনের শিরোনাম (Title)</label>
+                <input type="text" id="pushTitleInput" required placeholder="যেমন: 🎉 মহাখালীতে আজ নতুন ৩টি বাসা যুক্ত হয়েছে!" class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium">
+              </div>
+
+              <!-- Body Input -->
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1.5">নোটিফিকেশনের বিস্তারিত বার্তা (Body / Message)</label>
+                <textarea id="pushBodyInput" required rows="3" placeholder="যেমন: আপনার পছন্দের এলাকায় নতুন ব্যাচেলর ও ফ্যামিলি বাসা টু-লেট দেওয়া হয়েছে। বাড়িওয়ালার সরাসরি নম্বর দেখতে এখনই অ্যাপ ওপেন করুন।" class="w-full text-xs py-2.5 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium leading-relaxed"></textarea>
+              </div>
+
+              <!-- Send Button -->
+              <div class="pt-2">
+                <button type="submit" id="btnSendPush" class="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-lg shadow-purple-200 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm">
+                  <i class="fa-solid fa-paper-plane"></i>
+                  <span>এখনই পুশ নোটিফিকেশন পাঠান</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Column 3: Push Tips & Target Details -->
+          <div class="space-y-4">
+            <div class="bg-gradient-to-br from-purple-50 to-indigo-50 p-5 rounded-2xl border border-purple-100 space-y-3 text-xs text-purple-950">
+              <h3 class="font-bold text-sm text-purple-900 flex items-center gap-1.5">
+                <i class="fa-solid fa-bullhorn text-purple-600"></i>
+                <span>পুশ নোটিফিকেশন গাইড</span>
+              </h3>
+              <p class="leading-relaxed">
+                মোবাইল অ্যাপে রেজিস্টার করা অথবা ব্রাউজ করা গ্রাহকদের ফোনে এই নোটিফিকেশনটি সরাসরি রিয়েল-টাইম পুশ হিসেবে ভেসে উঠবে।
+              </p>
+              <div class="space-y-2 pt-1 border-t border-purple-200/60 text-[11px]">
+                <div class="flex items-start gap-1.5">
+                  <i class="fa-solid fa-check text-emerald-600 mt-0.5"></i>
+                  <span><strong>আজকের ইউজার:</strong> যারা আজকেই অ্যাপ ডাউনলোড বা রেজিস্টার করেছে তাদের স্বাগত জানান।</span>
+                </div>
+                <div class="flex items-start gap-1.5">
+                  <i class="fa-solid fa-check text-emerald-600 mt-0.5"></i>
+                  <span><strong>লিমিট শেষ:</strong> যাদের ৩টি দেখা শেষ তাদেরকে ৫০ টাকায় আনলিমিটেড আনলক করতে উৎসাহিত করুন।</span>
+                </div>
+                <div class="flex items-start gap-1.5">
+                  <i class="fa-solid fa-check text-emerald-600 mt-0.5"></i>
+                  <span><strong>নির্দিষ্ট নম্বর:</strong> কোনো বিশেষ গ্রাহককে ফলো-আপ বার্তা বা অফার পাঠাতে নম্বর দিয়ে টার্গেট করুন।</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Push Summary Card -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="font-bold text-xs text-slate-800 uppercase tracking-wider">
+                  সর্বশেষ পুশ হিস্ট্রি
+                </h3>
+                <button type="button" onclick="fetchPushLogs()" class="text-purple-600 hover:underline text-[11px] font-bold">
+                  <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+              </div>
+              <div id="pushLogsList" class="space-y-2 max-h-72 overflow-y-auto">
+                <div class="text-center py-6 text-slate-400 text-xs">লোড হচ্ছে...</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <!-- TAB 7: APP CONFIG & SETTINGS                               -->
       <!-- ═══════════════════════════════════════════════════════════ -->
       <section id="view-settings" class="space-y-6 hidden">
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 max-w-3xl">
@@ -1128,7 +1276,7 @@
     // ─────────────────────────────────────────────────────────────
     // TAB NAVIGATION
     // ─────────────────────────────────────────────────────────────
-    const tabs = ['overview', 'limits', 'users', 'properties', 'reports', 'settings'];
+    const tabs = ['overview', 'limits', 'users', 'properties', 'reports', 'notifications', 'settings'];
 
     function switchTab(target) {
       tabs.forEach(t => {
@@ -1146,6 +1294,10 @@
       if (target === 'users') fetchUsers();
       if (target === 'properties') fetchProperties();
       if (target === 'reports') fetchReports();
+      if (target === 'notifications') {
+        fetchAudienceCount();
+        fetchPushLogs();
+      }
       if (target === 'settings') fetchConfig();
     }
 
@@ -2423,6 +2575,169 @@
           </td>
         </tr>
       `).join('');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // PUSH NOTIFICATION BROADCAST LOGIC
+    // ─────────────────────────────────────────────────────────────
+    let audienceDebounceTimeout = null;
+
+    const PUSH_TEMPLATES = {
+      new_house: {
+        title: '🏠 আপনার এলাকায় নতুন বাসা টু-লেট যুক্ত হয়েছে!',
+        body: 'আজকে বেশ কিছু মনোরম ফ্যামিলি ও ব্যাচেলর বাসা অ্যাপে পোস্ট করা হয়েছে। বাড়িওয়ালার সরাসরি নম্বর দেখতে এখনই চেক করুন।'
+      },
+      limit_offer: {
+        title: '⚠️ ফ্রি লিমিট শেষ? মাত্র ৫০ টাকায় পুরো মাস দেখুন!',
+        body: 'আপনার ৩টি ফ্রি ভিউ শেষ হয়ে থাকলে মাত্র ৫০ টাকার কানেকশন চার্জ দিয়ে সারা মাস সরাসরি বাড়িওয়ালাদের সাথে কথা বলুন।'
+      },
+      special_offer: {
+        title: '🎁 বাসা খুঁজতে আর কোনো বাধা নেই!',
+        body: 'রোদে পুড়ে, বাড়ি বাড়ি ঘুরে বাসা খোঁজার দিন শেষ! বাসাবন্ধু অ্যাপে মাত্র ৫০ টাকায় সরাসরি বাড়িওয়ালার নম্বর আনলক করুন।'
+      },
+      follow_up: {
+        title: '📞 পছন্দমতো বাসা কি পেয়েছেন?',
+        body: 'আপনি কি বাড়িওয়ালার সাথে কথা বলেছেন? বাসা পেতে কোনো সমস্যা হলে আমাদের হোয়াটসঅ্যাপে সরাসরি জানান।'
+      }
+    };
+
+    function applyPushTemplate(key) {
+      const tmpl = PUSH_TEMPLATES[key];
+      if (!tmpl) return;
+      document.getElementById('pushTitleInput').value = tmpl.title;
+      document.getElementById('pushBodyInput').value = tmpl.body;
+      showToast('টেমপ্লেট লোড হয়েছে');
+    }
+
+    function onAudienceFilterChange() {
+      const aud = document.getElementById('pushAudienceSelect').value;
+      const phoneContainer = document.getElementById('pushSpecificPhoneContainer');
+      if (aud === 'SPECIFIC_PHONE') {
+        phoneContainer.classList.remove('hidden');
+      } else {
+        phoneContainer.classList.add('hidden');
+      }
+      fetchAudienceCount();
+    }
+
+    function debounceAudienceCount() {
+      clearTimeout(audienceDebounceTimeout);
+      audienceDebounceTimeout = setTimeout(fetchAudienceCount, 300);
+    }
+
+    async function fetchAudienceCount() {
+      const aud = document.getElementById('pushAudienceSelect').value;
+      const phone = document.getElementById('pushSpecificPhoneInput').value.trim();
+      const estimateElem = document.getElementById('pushAudienceEstimate');
+      estimateElem.textContent = 'হিসাব হচ্ছে...';
+
+      try {
+        const res = await apiCall(`/notifications/audience-count?audience=${aud}&phone=${encodeURIComponent(phone)}`);
+        estimateElem.textContent = `${res.tokenCount}টি সক্রিয় ডিভাইসে যাবে`;
+      } catch (err) {
+        estimateElem.textContent = '০টি ডিভাইস';
+      }
+    }
+
+    async function handleSendPush(e) {
+      e.preventDefault();
+      const title = document.getElementById('pushTitleInput').value.trim();
+      const body = document.getElementById('pushBodyInput').value.trim();
+      const targetAudience = document.getElementById('pushAudienceSelect').value;
+      const specificPhone = document.getElementById('pushSpecificPhoneInput').value.trim();
+      const estimateText = document.getElementById('pushAudienceEstimate').textContent;
+
+      if (!title || !body) {
+        showToast('শিরোনাম ও বার্তা উভয়ই পূরণ করুন', true);
+        return;
+      }
+      if (targetAudience === 'SPECIFIC_PHONE' && !specificPhone) {
+        showToast('নির্দিষ্ট গ্রাহকের ফোন নম্বর দিন', true);
+        return;
+      }
+
+      const confirmed = await showConfirmDialog({
+        title: 'পুশ নোটিফিকেশন নিশ্চিতকরণ 📢',
+        message: `আপনি কি <strong>${estimateText}</strong> এই নোটিফিকেশনটি পাঠাতে চান?<br><br><div class="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-left text-xs"><strong class="text-slate-900 block font-bold mb-1">${title}</strong><p class="text-slate-600">${body}</p></div>`,
+        icon: 'fa-paper-plane',
+        iconBg: 'bg-purple-100 text-purple-700',
+        confirmBtnText: 'হ্যাঁ, এখনই পাঠান',
+        confirmBtnClass: 'bg-purple-600 hover:bg-purple-700 text-white'
+      });
+      if (!confirmed) return;
+
+      const btn = document.getElementById('btnSendPush');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> নোটিফিকেশন পাঠানো হচ্ছে...';
+
+      try {
+        const res = await apiCall('/notifications/send-push', 'POST', {
+          title,
+          body,
+          targetAudience,
+          specificPhone
+        });
+
+        showStatusPopup({
+          title: 'নোটিফিকেশন পাঠানো সম্পন্ন! 🚀',
+          message: `${res.targetCount}টি টার্গেট ডিভাইসের মধ্যে ${res.successCount}টিতে সফলভাবে পুশ নোটিফিকেশন ডেলিভার হয়েছে!`,
+          type: 'success',
+          duration: 4000
+        });
+
+        document.getElementById('pushTitleInput').value = '';
+        document.getElementById('pushBodyInput').value = '';
+        fetchPushLogs();
+      } catch (err) {
+        showStatusPopup({
+          title: 'নোটিফিকেশন পাঠানো ব্যর্থ',
+          message: err.message,
+          type: 'error'
+        });
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> <span>এখনই পুশ নোটিফিকেশন পাঠান</span>';
+      }
+    }
+
+    async function fetchPushLogs() {
+      const container = document.getElementById('pushLogsList');
+      if (!container) return;
+      container.innerHTML = '<div class="text-center py-4 text-slate-400 text-xs"><i class="fa-solid fa-spinner animate-spin mr-1"></i> হিস্ট্রি লোড হচ্ছে...</div>';
+
+      try {
+        const res = await apiCall('/notifications/push-logs');
+        const logs = res.logs || [];
+        if (!logs.length) {
+          container.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs font-medium">কোনো পূর্ববর্তী পুশ নোটিফিকেশন হিস্ট্রি নেই</div>';
+          return;
+        }
+
+        const audMap = {
+          ALL: '📢 সকল ইউজার',
+          TODAY: '🆕 আজকের ইউজার',
+          LIMIT_REACHED: '⚠️ লিমিট শেষ',
+          PAID: '✓ পেইড মেম্বার',
+          UNPAID: '⚪ আনপেইড ইউজার',
+          SPECIFIC_PHONE: '📱 নির্দিষ্ট গ্রাহক',
+        };
+
+        container.innerHTML = logs.map(l => `
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5 hover:border-purple-200 transition-all">
+            <div class="flex justify-between items-start gap-2">
+              <span class="font-bold text-slate-900 leading-snug line-clamp-1">${l.title}</span>
+              <span class="text-[10px] text-slate-400 font-mono shrink-0">${new Date(l.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' })}, ${new Date(l.createdAt).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+            <p class="text-slate-600 text-[11px] line-clamp-2 leading-relaxed">${l.body}</p>
+            <div class="flex justify-between items-center pt-1 border-t border-slate-200/60 text-[10px]">
+              <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold">${audMap[l.targetAudience] || l.targetAudience}${l.specificPhone ? ` (${l.specificPhone})` : ''}</span>
+              <span class="font-bold font-mono text-emerald-700">✓ ${l.successCount} / ${l.targetCount} ডেলিভারড</span>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="text-center py-4 text-rose-500 text-xs">${err.message}</div>`;
+      }
     }
 
     // Initialize on page load

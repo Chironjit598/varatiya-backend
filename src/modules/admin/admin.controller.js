@@ -371,6 +371,67 @@ class AdminController {
       next(error);
     }
   }
+
+  /**
+   * API: Get audience token count for push notification filter
+   * GET /admin/api/notifications/audience-count
+   */
+  async getAudienceCount(req, res, next) {
+    try {
+      const { audience, phone } = req.query;
+      const result = await adminService.getAudienceCount(audience, phone);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'Audience count calculated',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Send Broadcast Push Notification
+   * POST /admin/api/notifications/send-push
+   */
+  async sendPushNotification(req, res, next) {
+    try {
+      const { title, body, targetAudience, specificPhone } = req.body;
+      const adminName = req.adminUser?.name || 'Admin';
+      const result = await adminService.sendBroadcastPushNotification({
+        title,
+        body,
+        targetAudience,
+        specificPhone,
+        adminName,
+      });
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Get Push Notification History Logs
+   * GET /admin/api/notifications/push-logs
+   */
+  async getPushLogs(req, res, next) {
+    try {
+      const { page, limit } = req.query;
+      const result = await adminService.getPushLogs({ page, limit });
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'Push logs loaded',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AdminController();

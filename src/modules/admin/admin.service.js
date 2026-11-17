@@ -10,6 +10,8 @@ const UserInterest = require('../notification/userInterest.model');
 const paymentService = require('../payment/payment.service');
 const AppConfig = require('./appConfig.model');
 const CrmLead = require('./crmLead.model');
+const PushLog = require('./pushLog.model');
+const { sendFcmPushNotification, isFirebaseInitialized } = require('../../config/firebase');
 
 class AdminService {
   /**
@@ -307,33 +309,52 @@ class AdminService {
         .select('name phoneNumber role isPaid paidMonth paidUntil createdAt'),
     ]);
 
-    // Enrich users with viewed property count
+    // Enrich users with viewed property count & CRM correlation
     const enrichedUsers = await Promise.all(
       users.map(async (u) => {
         const uObj = u.toObject();
         try {
-          const [interest, guestTrackings] = await Promise.all([
-            UserInterest.findOne({ userId: u._id }).select('viewedProperties').lean(),
+          // 1. Gather all deviceIds associated with this user
+          const [uInterests, gTrackings] = await Promise.all([
+            UserInterest.find({ userId: u._id }).select('deviceId viewedProperties').lean(),
             GuestDeviceTracking.find({
               $or: [{ userId: u._id }, { phoneNumber: u.phoneNumber }],
             })
-              .select('viewedPropertyIds')
+              .select('deviceId viewedPropertyIds')
               .lean(),
           ]);
 
+          const deviceIds = new Set();
+          uInterests.forEach((i) => {
+            if (i.deviceId) deviceIds.add(i.deviceId);
+          });
+          gTrackings.forEach((g) => {
+            if (g.deviceId) deviceIds.add(g.deviceId);
+          });
+
+          // 2. Query all UserInterest and GuestDeviceTracking records matching userId, phone, or any known deviceId
+          const orConditions = [{ userId: u._id }, { phoneNumber: u.phoneNumber }];
+          if (deviceIds.size > 0) {
+            orConditions.push({ deviceId: { $in: Array.from(deviceIds) } });
+          }
+
+          const [allInterests, allGuests] = await Promise.all([
+            UserInterest.find({ $or: orConditions }).select('viewedProperties').lean(),
+            GuestDeviceTracking.find({ $or: orConditions }).select('viewedPropertyIds').lean(),
+          ]);
+
           const propIdSet = new Set();
-          if (interest?.viewedProperties) {
-            interest.viewedProperties.forEach((p) => {
+          allInterests.forEach((i) => {
+            (i.viewedProperties || []).forEach((p) => {
               if (p.propertyId) propIdSet.add(p.propertyId.toString());
             });
-          }
-          if (guestTrackings) {
-            guestTrackings.forEach((g) => {
-              if (g.viewedPropertyIds) {
-                g.viewedPropertyIds.forEach((id) => propIdSet.add(id.toString()));
-              }
+          });
+          allGuests.forEach((g) => {
+            (g.viewedPropertyIds || []).forEach((id) => {
+              propIdSet.add(id.toString());
             });
-          }
+          });
+
           let crmLead = null;
           if (u.phoneNumber) {
             crmLead = await CrmLead.findOne({ phoneNumber: u.phoneNumber }).lean();
@@ -372,11 +393,11 @@ class AdminService {
 
     if (isPhone) {
       user = await User.findOne({ phoneNumber: userIdOrPhone })
-        .select('name phoneNumber role isPaid paidMonth createdAt')
+        .select('name phoneNumber role isPaid paidMonth createdAt customLimit')
         .lean();
     } else {
       user = await User.findById(userIdOrPhone)
-        .select('name phoneNumber role isPaid paidMonth createdAt')
+        .select('name phoneNumber role isPaid paidMonth createdAt customLimit')
         .lean();
     }
 
@@ -395,38 +416,62 @@ class AdminService {
       }
     }
 
-    const queryOr = [{ phoneNumber: user.phoneNumber }];
-    if (user._id && !isPhone) {
-      queryOr.push({ userId: user._id });
+    // Gather all linked deviceIds
+    const [uInterests, gTrackings] = await Promise.all([
+      user._id ? UserInterest.find({ userId: user._id }).select('deviceId').lean() : [],
+      user.phoneNumber
+        ? GuestDeviceTracking.find({
+            $or: [{ phoneNumber: user.phoneNumber }, ...(user._id ? [{ userId: user._id }] : [])],
+          })
+            .select('deviceId')
+            .lean()
+        : [],
+    ]);
+
+    const deviceIds = new Set();
+    uInterests.forEach((i) => {
+      if (i.deviceId) deviceIds.add(i.deviceId);
+    });
+    gTrackings.forEach((g) => {
+      if (g.deviceId) deviceIds.add(g.deviceId);
+    });
+
+    const queryOr = [];
+    if (user.phoneNumber) queryOr.push({ phoneNumber: user.phoneNumber });
+    if (user._id) queryOr.push({ userId: user._id });
+    if (deviceIds.size > 0) {
+      queryOr.push({ deviceId: { $in: Array.from(deviceIds) } });
     }
 
-    const [interest, guestTrackings] = await Promise.all([
-      user._id && !isPhone ? UserInterest.findOne({ userId: user._id }).lean() : null,
+    const [allInterests, allGuests] = await Promise.all([
+      UserInterest.find({ $or: queryOr }).lean(),
       GuestDeviceTracking.find({ $or: queryOr }).lean(),
     ]);
 
     const viewedMap = new Map(); // propId -> { viewedAt }
-    if (interest?.viewedProperties) {
-      interest.viewedProperties.forEach((p) => {
-        if (p.propertyId) {
-          viewedMap.set(p.propertyId.toString(), {
-            viewedAt: p.viewedAt || interest.updatedAt,
-          });
-        }
-      });
-    }
-    if (guestTrackings) {
-      guestTrackings.forEach((g) => {
-        if (g.viewedPropertyIds) {
-          g.viewedPropertyIds.forEach((id) => {
-            const key = id.toString();
+    allInterests.forEach((interest) => {
+      if (interest?.viewedProperties) {
+        interest.viewedProperties.forEach((p) => {
+          if (p.propertyId) {
+            const key = p.propertyId.toString();
             if (!viewedMap.has(key)) {
-              viewedMap.set(key, { viewedAt: g.updatedAt });
+              viewedMap.set(key, { viewedAt: p.viewedAt || interest.updatedAt });
             }
-          });
-        }
-      });
-    }
+          }
+        });
+      }
+    });
+
+    allGuests.forEach((g) => {
+      if (g?.viewedPropertyIds) {
+        g.viewedPropertyIds.forEach((id) => {
+          const key = id.toString();
+          if (!viewedMap.has(key)) {
+            viewedMap.set(key, { viewedAt: g.updatedAt });
+          }
+        });
+      }
+    });
 
     const propIds = Array.from(viewedMap.keys());
     const properties = await Property.find({ _id: { $in: propIds } })
@@ -910,6 +955,191 @@ class AdminService {
       user: userResult.user,
       autoPassword: userResult.autoPassword,
       message: `${cleanPhone} নম্বরটি সফলভাবে আনলক ও পেইড করা হয়েছে!`,
+    };
+  }
+
+  /**
+   * Helper to resolve distinct FCM tokens by audience filter
+   */
+  async _resolveAudienceTokens(targetAudience = 'ALL', specificPhone = null) {
+    const tokens = new Set();
+
+    if (targetAudience === 'SPECIFIC_PHONE' && specificPhone) {
+      const cleanPhone = String(specificPhone).trim();
+      const user = await User.findOne({ phoneNumber: cleanPhone }).select('fcmToken _id').lean();
+      if (user?.fcmToken) tokens.add(user.fcmToken);
+
+      // Check linked device trackings and user interests
+      const gTrackings = await GuestDeviceTracking.find({ phoneNumber: cleanPhone }).select('deviceId').lean();
+      const deviceIds = gTrackings.map((g) => g.deviceId).filter(Boolean);
+      const orConditions = [{ phoneNumber: cleanPhone }];
+      if (user?._id) orConditions.push({ userId: user._id });
+      if (deviceIds.length) orConditions.push({ deviceId: { $in: deviceIds } });
+
+      const interests = await UserInterest.find({ $or: orConditions }).select('fcmToken').lean();
+      interests.forEach((i) => {
+        if (i.fcmToken) tokens.add(i.fcmToken);
+      });
+
+      return Array.from(tokens).filter(Boolean);
+    }
+
+    if (targetAudience === 'ALL') {
+      const [userTokens, interestTokens] = await Promise.all([
+        User.find({ fcmToken: { $ne: null, $exists: true } }).select('fcmToken').lean(),
+        UserInterest.find({ fcmToken: { $ne: null, $exists: true } }).select('fcmToken').lean(),
+      ]);
+      userTokens.forEach((u) => { if (u.fcmToken) tokens.add(u.fcmToken); });
+      interestTokens.forEach((i) => { if (i.fcmToken) tokens.add(i.fcmToken); });
+      return Array.from(tokens).filter(Boolean);
+    }
+
+    if (targetAudience === 'TODAY') {
+      const now = new Date();
+      const startOfDayBST = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), -6, 0, 0, 0));
+      const todayUsers = await User.find({ createdAt: { $gte: startOfDayBST } }).select('fcmToken _id').lean();
+      const todayUserIds = todayUsers.map((u) => u._id);
+      todayUsers.forEach((u) => { if (u.fcmToken) tokens.add(u.fcmToken); });
+
+      const todayInterests = await UserInterest.find({
+        $or: [{ userId: { $in: todayUserIds } }, { updatedAt: { $gte: startOfDayBST } }],
+      })
+        .select('fcmToken')
+        .lean();
+      todayInterests.forEach((i) => { if (i.fcmToken) tokens.add(i.fcmToken); });
+      return Array.from(tokens).filter(Boolean);
+    }
+
+    if (targetAudience === 'LIMIT_REACHED') {
+      const limitDevices = await GuestDeviceTracking.find({ count: { $gte: 3 }, isPaid: { $ne: true } }).lean();
+      const limitPhones = limitDevices.map((d) => d.phoneNumber).filter(Boolean);
+      const limitDeviceIds = limitDevices.map((d) => d.deviceId).filter(Boolean);
+
+      const [limitUsers, limitInterests] = await Promise.all([
+        User.find({ $or: [{ phoneNumber: { $in: limitPhones } }, { isPaid: false }] }).select('fcmToken').lean(),
+        UserInterest.find({ deviceId: { $in: limitDeviceIds } }).select('fcmToken').lean(),
+      ]);
+
+      limitUsers.forEach((u) => { if (u.fcmToken) tokens.add(u.fcmToken); });
+      limitInterests.forEach((i) => { if (i.fcmToken) tokens.add(i.fcmToken); });
+      return Array.from(tokens).filter(Boolean);
+    }
+
+    if (targetAudience === 'PAID') {
+      const paidUsers = await User.find({ isPaid: true }).select('fcmToken').lean();
+      paidUsers.forEach((u) => { if (u.fcmToken) tokens.add(u.fcmToken); });
+      return Array.from(tokens).filter(Boolean);
+    }
+
+    if (targetAudience === 'UNPAID') {
+      const unpaidUsers = await User.find({ isPaid: { $ne: true } }).select('fcmToken').lean();
+      unpaidUsers.forEach((u) => { if (u.fcmToken) tokens.add(u.fcmToken); });
+      return Array.from(tokens).filter(Boolean);
+    }
+
+    return Array.from(tokens).filter(Boolean);
+  }
+
+  /**
+   * Calculate audience token count based on filter
+   */
+  async getAudienceCount(targetAudience = 'ALL', specificPhone = null) {
+    const tokens = await this._resolveAudienceTokens(targetAudience, specificPhone);
+    return {
+      targetAudience,
+      specificPhone,
+      tokenCount: tokens.length,
+      isFirebaseActive: isFirebaseInitialized(),
+    };
+  }
+
+  /**
+   * Send Broadcast Push Notification
+   */
+  async sendBroadcastPushNotification({ title, body, targetAudience = 'ALL', specificPhone = null, adminName = 'Admin' }) {
+    if (!title || !title.trim()) throw new Error('নোটিফিকেশনের শিরোনাম (Title) দিন');
+    if (!body || !body.trim()) throw new Error('নোটিফিকেশনের বিবরণ (Body) দিন');
+
+    const cleanTitle = title.trim();
+    const cleanBody = body.trim();
+
+    const tokens = await this._resolveAudienceTokens(targetAudience, specificPhone);
+    if (!tokens.length) {
+      throw new Error('এই ফিল্টারে কোনো সক্রিয় ডিভাইসের পুশ টোকেন পাওয়া যায়নি');
+    }
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    // Send with concurrency control (10 at a time)
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+      const chunk = tokens.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        chunk.map((tok) =>
+          sendFcmPushNotification({
+            token: tok,
+            title: cleanTitle,
+            body: cleanBody,
+            data: {
+              type: 'ADMIN_BROADCAST',
+              targetAudience,
+              click_action: 'FLUTTER_NOTIFICATION_CLICK',
+            },
+          })
+        )
+      );
+
+      results.forEach((r) => {
+        if (r.status === 'fulfilled' && r.value?.success) {
+          successCount++;
+        } else {
+          failedCount++;
+        }
+      });
+    }
+
+    // Save Push Log
+    const log = await PushLog.create({
+      title: cleanTitle,
+      body: cleanBody,
+      targetAudience,
+      specificPhone: targetAudience === 'SPECIFIC_PHONE' ? specificPhone : null,
+      targetCount: tokens.length,
+      successCount,
+      failedCount,
+      sentBy: adminName,
+    });
+
+    return {
+      logId: log._id,
+      targetAudience,
+      targetCount: tokens.length,
+      successCount,
+      failedCount,
+      isFirebaseActive: isFirebaseInitialized(),
+      message: `${tokens.length}টি টার্গেট ডিভাইসের মধ্যে ${successCount}টিতে নোটিফিকেশন সফলভাবে পাঠানো হয়েছে`,
+    };
+  }
+
+  /**
+   * Get push notification history logs
+   */
+  async getPushLogs({ page = 1, limit = 15 } = {}) {
+    const skip = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+    const [total, logs] = await Promise.all([
+      PushLog.countDocuments(),
+      PushLog.find().sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+    ]);
+
+    return {
+      logs,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)) || 1,
+      },
     };
   }
 }
