@@ -1150,7 +1150,8 @@ class PropertyService {
       await tracking.save();
     }
 
-    const maxLimit = 3;
+    const baseLimit = paymentService.getCachedConfig()?.freeGuestLimit || Number(env.GUEST_FREE_CONTACT_LIMIT) || 3;
+    const maxLimit = tracking.customLimit || user?.customLimit || baseLimit;
 
     // Check if this property was already viewed by this device this month
     const alreadyViewed = tracking.viewedPropertyIds.some(
@@ -1178,7 +1179,7 @@ class PropertyService {
         limitReached: true,
         remaining: 0,
         contactPhone: null,
-        message: `আপনার এই মাসের ৩টি ফ্রি নম্বর দেখার সুযোগ শেষ হয়েছে! পুরো মাস আনলিমিটেড দেখতে মাত্র ৫০ টাকার কানেকশন চার্জ দিন।`,
+        message: `আপনার এই মাসের ${maxLimit}টি ফ্রি নম্বর দেখার সুযোগ শেষ হয়েছে! পুরো মাস আনলিমিটেড দেখতে মাত্র ৫০ টাকার কানেকশন চার্জ দিন।`,
         currentMonthName: paymentService.getBengaliMonthName(),
       };
     }

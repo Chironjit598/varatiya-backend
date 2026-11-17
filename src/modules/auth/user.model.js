@@ -94,6 +94,10 @@ const userSchema = new mongoose.Schema(
       default: Date.now,
       index: true,
     },
+    customLimit: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: true,

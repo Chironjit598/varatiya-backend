@@ -9,6 +9,7 @@ const IncomingSms = require('../payment/incomingSms.model');
 const UserInterest = require('../notification/userInterest.model');
 const paymentService = require('../payment/payment.service');
 const AppConfig = require('./appConfig.model');
+const CrmLead = require('./crmLead.model');
 
 class AdminService {
   /**
@@ -144,6 +145,7 @@ class AdminService {
       recentPending,
       totalReports,
       activeReports,
+      todayFollowUpsCount,
     ] = await Promise.all([
       User.countDocuments(),
       User.find({ createdAt: { $gte: startOfToday } })
@@ -163,6 +165,9 @@ class AdminService {
       PendingVerification.find().sort({ createdAt: -1 }).limit(10),
       PropertyReport.countDocuments(),
       PropertyReport.countDocuments({ status: 'ACTIVE' }),
+      CrmLead.countDocuments({
+        nextFollowUpDate: { $lte: new Date(startOfToday.getTime() + 24 * 3600 * 1000 - 1) },
+      }),
     ]);
 
     // Build enriched limit reached devices
@@ -201,6 +206,11 @@ class AdminService {
         }
       }
 
+      let crmLead = null;
+      if (matchedPhone) {
+        crmLead = await CrmLead.findOne({ phoneNumber: matchedPhone }).lean();
+      }
+
       enrichedLimitDevices.push({
         deviceId: dev.deviceId,
         shortDeviceId: dev.deviceId.slice(-10),
@@ -210,6 +220,11 @@ class AdminService {
         matchedPhone,
         matchedUserName: matchedUserName || null,
         isPaid: Boolean(isPaid),
+        customLimit: dev.customLimit || crmLead?.customLimit || null,
+        crmPriority: crmLead?.priority || 'MEDIUM',
+        crmStatus: crmLead?.leadStatus || 'NEW',
+        crmNextFollowUp: crmLead?.nextFollowUpDate || null,
+        crmLatestNote: crmLead?.latestNote || '',
         properties: props.map((p) => ({
           id: p._id,
           propertyCode: p.propertyCode || '',
@@ -233,6 +248,7 @@ class AdminService {
         todayPropertiesCount: todayProperties,
         totalReports,
         activeReports,
+        todayFollowUpsCount: todayFollowUpsCount || 0,
         appMode: paymentService.getAppMode(),
         isPaymentEnabled: paymentService.isPaymentEnabled(),
         currentMonthYear,
@@ -318,6 +334,15 @@ class AdminService {
               }
             });
           }
+          let crmLead = null;
+          if (u.phoneNumber) {
+            crmLead = await CrmLead.findOne({ phoneNumber: u.phoneNumber }).lean();
+          }
+          uObj.customLimit = u.customLimit || crmLead?.customLimit || null;
+          uObj.crmPriority = crmLead?.priority || 'MEDIUM';
+          uObj.crmStatus = crmLead?.leadStatus || 'NEW';
+          uObj.crmNextFollowUp = crmLead?.nextFollowUpDate || null;
+          uObj.crmLatestNote = crmLead?.latestNote || '';
           uObj.viewedCount = propIdSet.size;
         } catch {
           uObj.viewedCount = 0;
@@ -418,10 +443,190 @@ class AdminService {
       };
     });
 
+    let crmLead = null;
+    if (user.phoneNumber) {
+      crmLead = await CrmLead.findOne({ phoneNumber: user.phoneNumber }).lean();
+    }
+
+    const currentMonthYear = paymentService.getCurrentMonthYear();
+    const tracking = await GuestDeviceTracking.findOne({
+      $or: queryOr,
+      monthYear: currentMonthYear,
+    }).lean();
+
+    const baseLimit = paymentService.getCachedConfig()?.freeGuestLimit || 3;
+    const currentLimit = tracking?.customLimit || crmLead?.customLimit || user.customLimit || baseLimit;
+    const currentCount = tracking?.count || 0;
+
     return {
       user,
+      crmLead,
+      currentLimit,
+      currentCount,
       properties: enrichedProperties,
       totalViews: enrichedProperties.length,
+    };
+  }
+
+  /**
+   * Save or Update CRM Lead details (priority, status, notes, follow-up date, customLimit)
+   */
+  async saveCrmLead(data) {
+    const {
+      phoneNumber,
+      userName,
+      priority,
+      leadStatus,
+      nextFollowUpDate,
+      newNote,
+      customLimit,
+      adminName = 'Chironjit Roy',
+    } = data;
+
+    const cleanPhone = paymentService.normalizePhoneNumber(phoneNumber);
+    if (!cleanPhone || cleanPhone.length !== 11) {
+      throw new Error('সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন');
+    }
+
+    let lead = await CrmLead.findOne({ phoneNumber: cleanPhone });
+    if (!lead) {
+      lead = new CrmLead({
+        phoneNumber: cleanPhone,
+        userName: userName || '',
+      });
+    }
+
+    if (userName) lead.userName = userName;
+    if (priority) lead.priority = priority;
+    if (leadStatus) lead.leadStatus = leadStatus;
+
+    if (nextFollowUpDate !== undefined) {
+      lead.nextFollowUpDate = nextFollowUpDate ? new Date(nextFollowUpDate) : null;
+    }
+
+    if (newNote && newNote.trim()) {
+      lead.notes.unshift({
+        text: newNote.trim(),
+        adminName,
+        createdAt: new Date(),
+      });
+      lead.latestNote = newNote.trim();
+      lead.lastContactedAt = new Date();
+    }
+
+    if (customLimit !== undefined && customLimit !== null && customLimit !== '') {
+      const numLimit = parseInt(customLimit);
+      if (!isNaN(numLimit)) {
+        lead.customLimit = numLimit;
+        await Promise.all([
+          User.updateMany({ phoneNumber: cleanPhone }, { customLimit: numLimit }),
+          GuestDeviceTracking.updateMany({ phoneNumber: cleanPhone }, { customLimit: numLimit }),
+        ]);
+      }
+    }
+
+    if (!lead.userId) {
+      const u = await User.findOne({ phoneNumber: cleanPhone }).select('_id name');
+      if (u) {
+        lead.userId = u._id;
+        if (!lead.userName) lead.userName = u.name;
+      }
+    }
+
+    await lead.save();
+
+    return {
+      success: true,
+      lead,
+      message: `${cleanPhone} এর সিআরএম তথ্য ও নোট সফলভাবে সেভ হয়েছে!`,
+    };
+  }
+
+  /**
+   * Directly set or extend custom free contact limit for a user or device
+   */
+  async setUserCustomLimit(idOrPhone, limitNumber) {
+    const numLimit = parseInt(limitNumber);
+    if (isNaN(numLimit) || numLimit < 1) {
+      throw new Error('সঠিক লিমিট সংখ্যা দিন (যেমন: ৫ বা ১০)');
+    }
+
+    const isPhone = /^\d{11}$/.test(idOrPhone);
+    let user = null;
+    let cleanPhone = null;
+
+    if (isPhone) {
+      cleanPhone = idOrPhone;
+      user = await User.findOne({ phoneNumber: cleanPhone });
+    } else {
+      user = await User.findById(idOrPhone);
+      if (user) cleanPhone = user.phoneNumber;
+    }
+
+    const updates = [];
+    if (user) {
+      user.customLimit = numLimit;
+      updates.push(user.save());
+    }
+
+    if (cleanPhone) {
+      updates.push(
+        GuestDeviceTracking.updateMany({ phoneNumber: cleanPhone }, { customLimit: numLimit }),
+        CrmLead.findOneAndUpdate(
+          { phoneNumber: cleanPhone },
+          { $set: { customLimit: numLimit } },
+          { upsert: true }
+        )
+      );
+    } else if (idOrPhone) {
+      updates.push(
+        GuestDeviceTracking.updateMany({ deviceId: idOrPhone }, { customLimit: numLimit })
+      );
+    }
+
+    await Promise.all(updates);
+
+    return {
+      success: true,
+      customLimit: numLimit,
+      message: `ফ্রি নম্বর দেখার লিমিট সফলভাবে ${numLimit}টিতে উন্নীত করা হয়েছে!`,
+    };
+  }
+
+  /**
+   * Get CRM Leads list
+   */
+  async getCrmLeads({ filter, page = 1, limit = 50 }) {
+    const query = {};
+    const startOfToday = this.getStartOfTodayBST();
+    const endOfToday = new Date(startOfToday.getTime() + 24 * 3600 * 1000 - 1);
+
+    if (filter === 'today') {
+      query.nextFollowUpDate = { $lte: endOfToday };
+    } else if (filter === 'urgent') {
+      query.priority = { $in: ['URGENT', 'HIGH'] };
+    } else if (filter === 'pending') {
+      query.leadStatus = { $in: ['INTERESTED', 'PAYMENT_PENDING'] };
+    }
+
+    const skip = (Math.max(1, parseInt(page)) - 1) * parseInt(limit);
+    const [total, leads] = await Promise.all([
+      CrmLead.countDocuments(query),
+      CrmLead.find(query)
+        .sort({ nextFollowUpDate: 1, updatedAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+    ]);
+
+    return {
+      leads,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        totalPages: Math.ceil(total / parseInt(limit)) || 1,
+      },
     };
   }
 

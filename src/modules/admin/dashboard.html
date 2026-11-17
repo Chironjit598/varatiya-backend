@@ -210,8 +210,8 @@
           </div>
         </div>
 
-        <!-- 6 KPI Stat Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <!-- 7 KPI Stat Cards Grid -->
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
           <!-- KPI 1 -->
           <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
             <div class="flex justify-between items-start">
@@ -230,7 +230,7 @@
           <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
             <div class="flex justify-between items-start">
               <div>
-                <p class="text-[11px] font-bold text-slate-500">মোট রেজিস্টার্ড ইউজার</p>
+                <p class="text-[11px] font-bold text-slate-500">মোট একাউন্ট</p>
                 <h3 class="text-2xl font-black text-slate-800 mt-1" id="statTotalUsers">0</h3>
               </div>
               <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs">
@@ -286,7 +286,7 @@
           <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
             <div class="flex justify-between items-start">
               <div>
-                <p class="text-[11px] font-bold text-slate-500">অভিযোগ / রিপোর্ট</p>
+                <p class="text-[11px] font-bold text-slate-500">রিপোর্ট / অভিযোগ</p>
                 <h3 class="text-2xl font-black text-orange-600 mt-1" id="statTotalReports">0</h3>
               </div>
               <div class="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center text-xs">
@@ -294,6 +294,20 @@
               </div>
             </div>
             <p class="text-[10px] text-orange-600 mt-2 font-bold" id="statActiveReports">০টি পেন্ডিং</p>
+          </div>
+
+          <!-- KPI 7 -->
+          <div class="bg-white p-4 rounded-2xl border border-purple-200 bg-purple-50/20 shadow-sm cursor-pointer hover:border-purple-300 transition-all" onclick="switchTab('users')">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-[11px] font-bold text-purple-900">আজকের ফলো-আপ কল</p>
+                <h3 class="text-2xl font-black text-purple-700 mt-1" id="statTodayFollowUps">0</h3>
+              </div>
+              <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-phone-volume"></i>
+              </div>
+            </div>
+            <p class="text-[10px] text-purple-600 mt-2 font-bold">সিআরএম শিডিউল</p>
           </div>
         </div>
 
@@ -646,6 +660,85 @@
         </div>
       </div>
 
+      <!-- CRM Lead Management & Follow-up Controls -->
+      <div class="bg-white border-b border-slate-200 p-4 sm:p-5 space-y-3.5">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-address-book text-emerald-600"></i>
+            <span>সিআরএম ফলো-আপ ও গ্রাহক নোটস</span>
+          </h4>
+          <span id="crmSavingStatus" class="text-[10px] text-slate-400 font-medium">স্বয়ংক্রিয় সেভ হয়</span>
+        </div>
+
+        <!-- Priority, Status, Next Call Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <!-- Priority Selector -->
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">লিড প্রায়োরিটি (Priority)</label>
+            <select id="crmPrioritySelect" onchange="autoSaveCrmLead()" class="w-full text-xs py-2 px-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="URGENT">🔴 জরুরি / হট লিড (Urgent)</option>
+              <option value="HIGH">🟠 হাই প্রায়োরিটি (High)</option>
+              <option value="MEDIUM" selected>🟡 মিডিয়াম (Medium)</option>
+              <option value="LOW">⚪ সাধারণ / লো (Low)</option>
+            </select>
+          </div>
+
+          <!-- Lead Status Selector -->
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">কথোপকথন স্ট্যাটাস (Status)</label>
+            <select id="crmStatusSelect" onchange="autoSaveCrmLead()" class="w-full text-xs py-2 px-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <option value="NEW">🆕 নতুন গ্রাহক (New)</option>
+              <option value="CALLED_TALKED">📞 কথা হয়েছে (Called/Talked)</option>
+              <option value="NO_ANSWER">⏳ রিং হয়েছে ধরে নাই (No Answer)</option>
+              <option value="INTERESTED">💬 আগ্রহী (Interested)</option>
+              <option value="PAYMENT_PENDING">💳 টাকা পাঠাবে (Payment Pending)</option>
+              <option value="CLOSED_RENTED">✅ বাসা পেয়ে গেছে (Closed/Rented)</option>
+              <option value="LOST_NOT_INTERESTED">❌ আগ্রহী নয় (Not Interested)</option>
+            </select>
+          </div>
+
+          <!-- Next Follow-up Date -->
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-1">পরবর্তী ফলো-আপ কল তারিখ</label>
+            <input type="date" id="crmNextFollowUpInput" onchange="autoSaveCrmLead()" class="w-full text-xs py-2 px-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <!-- Limit Extension Bar (Admin can add 5, 10 limits) -->
+        <div class="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl p-3 flex flex-wrap justify-between items-center gap-2">
+          <div class="text-xs">
+            <span class="text-indigo-950 font-bold">ফ্রি নম্বর দেখার লিমিট:</span>
+            <span id="uvmLimitInfo" class="font-mono font-black text-indigo-700 text-sm ml-1">৩ টি</span>
+            <span id="uvmCountInfo" class="text-[11px] text-slate-500 ml-1">(দেখা হয়েছে ৩টি)</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[11px] text-indigo-900 font-bold hidden sm:inline">লিমিট বাড়ান:</span>
+            <button onclick="quickAddLimit(2)" class="px-2.5 py-1 bg-white hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-xs shadow-sm transition-all">+২টি দিন</button>
+            <button onclick="quickAddLimit(5)" class="px-2.5 py-1 bg-white hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 text-xs shadow-sm transition-all">+৫টি দিন</button>
+            <button onclick="quickSetLimit(10)" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs shadow-sm transition-all">১০টি করুন</button>
+            <button onclick="promptCustomLimit()" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-xs border border-slate-200 transition-all" title="কাস্টম সংখ্যা লিখুন">অন্য সংখ্যা</button>
+          </div>
+        </div>
+
+        <!-- Call Notes Input & Previous Notes History -->
+        <div class="space-y-2 pt-1">
+          <label class="block text-[11px] font-bold text-slate-700">আজকের কথোপকথনের নোট লিখুন</label>
+          <div class="flex gap-2">
+            <input type="text" id="crmNewNoteInput" placeholder="যেমন: মিরপুর ২ এ ২ রুমের বাসা খুঁজছে, কাল টাকা পাঠাবে..." 
+              onkeydown="if(event.key==='Enter') submitCrmNote()"
+              class="flex-1 text-xs py-2 px-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <button onclick="submitCrmNote()" id="btnSaveCrmNote" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm transition-all flex items-center gap-1.5 shrink-0">
+              <i class="fa-solid fa-plus"></i>
+              <span>নোট যোগ করুন</span>
+            </button>
+          </div>
+          <!-- Notes History Timeline -->
+          <div id="crmNotesHistory" class="max-h-36 overflow-y-auto space-y-1.5 pt-1">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+      </div>
+
       <!-- Modal Body (List of Viewed Properties) -->
       <div class="p-4 sm:p-5 overflow-y-auto space-y-3 flex-1 bg-slate-50" id="uvmPropertiesList">
         <div class="py-8 text-center text-slate-400">
@@ -933,6 +1026,9 @@
       document.getElementById('statTotalReports').textContent = s.totalReports || 0;
       document.getElementById('statActiveReports').textContent = `${s.activeReports || 0} টি সক্রিয় পেন্ডিং`;
       document.getElementById('tabReportBadge').textContent = s.activeReports || 0;
+      if (document.getElementById('statTodayFollowUps')) {
+        document.getElementById('statTodayFollowUps').textContent = s.todayFollowUpsCount || 0;
+      }
 
       // Render Mode
       renderModeBadge(s.appMode);
@@ -1000,26 +1096,67 @@
         const name = d.matchedUserName || 'গেস্ট ব্রাউজার';
         const isPaid = d.isPaid;
         const timeAgo = new Date(d.updatedAt).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' });
+        const priority = d.crmPriority || 'MEDIUM';
+        const priorityBadge = priority === 'URGENT'
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600 text-white animate-pulse">🔴 জরুরি লিড</span>'
+          : priority === 'HIGH'
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white">🟠 হাই প্রায়োরিটি</span>'
+          : priority === 'LOW'
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">⚪ সাধারণ</span>'
+          : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">🟡 মিডিয়াম</span>';
+
+        const statusMap = {
+          NEW: '🆕 নতুন',
+          CALLED_TALKED: '📞 কথা হয়েছে',
+          NO_ANSWER: '⏳ রিং হয়েছে',
+          INTERESTED: '💬 আগ্রহী',
+          PAYMENT_PENDING: '💳 টাকা পাঠাবে',
+          CLOSED_RENTED: '✅ বাসা পেয়েছে',
+          LOST_NOT_INTERESTED: '❌ আগ্রহী নয়',
+        };
+        const statusText = statusMap[d.crmStatus] || '🆕 নতুন';
+        const limitBadge = d.customLimit ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">🔓 ${d.customLimit}টি ফ্রি লিমিট</span>` : '';
 
         return `
           <div class="bg-white rounded-2xl p-4 border ${isPaid ? 'border-emerald-200 bg-emerald-50/20' : 'border-rose-200 bg-rose-50/20'} shadow-sm space-y-3">
             <div class="flex justify-between items-start">
               <div>
-                <span class="inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
-                  ${isPaid ? '✓ পেইড গ্রাহক' : '✕ ৩/৩ লিমিট শেষ'}
-                </span>
-                <h4 class="font-bold text-slate-900 text-sm mt-1 flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-full ${isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
+                    ${isPaid ? '✓ পেইড গ্রাহক' : '✕ ৩/৩ লিমিট শেষ'}
+                  </span>
+                  ${priorityBadge}
+                  ${limitBadge}
+                </div>
+                <h4 class="font-bold text-slate-900 text-sm mt-1.5 flex items-center gap-1.5 cursor-pointer" onclick="${hasPhone ? `openUserViewedModal('${phone}')` : ''}">
                   <i class="fa-solid fa-mobile-screen text-slate-400 text-xs"></i>
-                  ${hasPhone ? `<a href="tel:${phone}" class="text-emerald-700 hover:underline font-mono">${phone}</a>` : '<span class="text-slate-400 font-mono">ফোন নম্বর নেই</span>'}
+                  ${hasPhone ? `<span class="text-emerald-700 hover:underline font-mono font-bold">${phone}</span>` : '<span class="text-slate-400 font-mono">ফোন নম্বর নেই</span>'}
                 </h4>
-                <p class="text-xs text-slate-600 font-medium">${name}</p>
+                <p class="text-xs text-slate-600 font-medium">${name} • <span class="text-slate-500 font-bold">${statusText}</span></p>
               </div>
               <span class="text-[10px] text-slate-400 font-mono">${timeAgo}</span>
             </div>
 
+            ${d.crmNextFollowUp ? `
+              <div class="text-[11px] font-bold text-indigo-800 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-xl flex items-center gap-1.5">
+                <i class="fa-regular fa-clock text-indigo-600"></i>
+                <span>পরবর্তী ফলো-আপ: ${new Date(d.crmNextFollowUp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              </div>
+            ` : ''}
+
+            ${d.crmLatestNote ? `
+              <div class="bg-amber-50/80 border border-amber-200 text-amber-950 rounded-xl p-2 text-xs italic leading-snug">
+                <strong class="text-amber-800 block text-[10px] uppercase font-bold not-italic">সর্বশেষ নোট:</strong>
+                "${d.crmLatestNote}"
+              </div>
+            ` : ''}
+
             <!-- Viewed Properties Snippet -->
-            <div class="bg-white rounded-xl p-2.5 border border-slate-100 text-xs space-y-1.5">
-              <p class="text-[10px] font-bold text-slate-400 uppercase">যেসব বাসা দেখেছেন (${d.properties.length}টি):</p>
+            <div class="bg-white rounded-xl p-2.5 border border-slate-100 text-xs space-y-1.5 cursor-pointer hover:border-emerald-300 transition-all" onclick="${hasPhone ? `openUserViewedModal('${phone}')` : ''}">
+              <div class="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase">
+                <span>যেসব বাসা দেখেছেন (${d.properties.length}টি):</span>
+                <span class="text-emerald-600 hover:underline">বিস্তারিত দেখুন →</span>
+              </div>
               ${d.properties.map(p => `
                 <div class="flex justify-between items-center text-[11px] text-slate-700">
                   <span class="truncate max-w-[170px]">${p.propertyCode ? `<strong class="font-mono text-emerald-600">#${p.propertyCode}</strong> ` : ''}${p.title}</span>
@@ -1049,10 +1186,15 @@
                 ` : ''}
               </div>
               ${hasPhone ? `
-                <button onclick="openUserViewedModal('${phone}')" class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 border border-slate-200">
-                  <i class="fa-solid fa-list-check text-emerald-600"></i>
-                  <span>সব দেখা বাসার বিবরণ ও কল স্ক্রিপ্ট</span>
-                </button>
+                <div class="flex gap-1.5">
+                  <button onclick="openUserViewedModal('${phone}')" class="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 border border-slate-200">
+                    <i class="fa-solid fa-list-check text-emerald-600"></i>
+                    <span>দেখা বাসা ও সিআরএম নোট</span>
+                  </button>
+                  <button onclick="quickAddLimitDirect('${phone}', 5)" class="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold rounded-lg text-xs transition-all border border-purple-200" title="+৫টি ফ্রি লিমিট দিন">
+                    +৫ লিমিট
+                  </button>
+                </div>
               ` : ''}
             </div>
           </div>
@@ -1165,21 +1307,43 @@
         const isPaid = u.isPaid;
         const regDate = new Date(u.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' });
         const viewCount = u.viewedCount || 0;
+        const priority = u.crmPriority || 'MEDIUM';
+        const priorityDot = priority === 'URGENT'
+          ? '<span class="inline-block w-2 h-2 rounded-full bg-rose-600 animate-ping mr-1" title="জরুরি লিড"></span><span class="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded-full">🔴 জরুরি</span>'
+          : priority === 'HIGH'
+          ? '<span class="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full">🟠 হাই</span>'
+          : '';
+
+        const statusMap = {
+          NEW: '',
+          CALLED_TALKED: '📞 কথা হয়েছে',
+          NO_ANSWER: '⏳ রিং হয়েছে',
+          INTERESTED: '💬 আগ্রহী',
+          PAYMENT_PENDING: '💳 টাকা পাঠাবে',
+          CLOSED_RENTED: '✅ বাসা পেয়েছে',
+          LOST_NOT_INTERESTED: '❌ বাতিল',
+        };
+        const statusBadge = statusMap[u.crmStatus] ? `<span class="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-full">${statusMap[u.crmStatus]}</span>` : '';
+        const limitBadge = u.customLimit ? `<span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full">🔓 ${u.customLimit}টি লিমিট</span>` : '';
+        const followUpBadge = u.crmNextFollowUp ? `<span class="text-[10px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-full flex items-center gap-1"><i class="fa-regular fa-clock"></i>${new Date(u.crmNextFollowUp).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' })}</span>` : '';
 
         return `
           <tr class="hover:bg-emerald-50/40 transition-colors">
-            <td class="py-3 px-4 cursor-pointer" onclick="openUserViewedModal('${u._id || u.id}')" title="দেখা বাসাগুলোর তালিকা দেখতে ক্লিক করুন">
-              <div class="font-bold text-slate-900 flex items-center gap-2">
+            <td class="py-3 px-4 cursor-pointer" onclick="openUserViewedModal('${u._id || u.id}')" title="দেখা বাসা ও সিআরএম নোট দেখতে ক্লিক করুন">
+              <div class="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
                 <span class="hover:underline hover:text-emerald-700 font-bold">${u.name}</span>
+                ${priorityDot}
+                ${statusBadge}
+                ${limitBadge}
+                ${followUpBadge}
+              </div>
+              <div class="font-mono text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                <span><i class="fa-solid fa-phone text-[10px] text-slate-400 mr-1"></i>${u.phoneNumber}</span>
                 ${viewCount > 0 ? `
                   <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
                     <i class="fa-solid fa-eye text-amber-600"></i> ${viewCount}টি বাসা দেখেছেন
                   </span>
                 ` : `<span class="text-[10px] text-slate-400 font-normal">০টি দেখা</span>`}
-              </div>
-              <div class="font-mono text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                <i class="fa-solid fa-phone text-[10px] text-slate-400"></i>
-                <span>${u.phoneNumber}</span>
               </div>
             </td>
             <td class="py-3 px-3">
@@ -1200,8 +1364,8 @@
             </td>
             <td class="py-3 px-4 text-right">
               <div class="flex items-center justify-end gap-1.5">
-                <button onclick="openUserViewedModal('${u._id || u.id}')" class="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1" title="দেখা বাসাগুলোর তালিকা দেখুন">
-                  <i class="fa-solid fa-list-check"></i>
+                <button onclick="openUserViewedModal('${u._id || u.id}')" class="px-2.5 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold transition-all flex items-center gap-1" title="দেখা বাসা ও সিআরএম নোট দেখুন">
+                  <i class="fa-solid fa-address-book"></i>
                   <span class="hidden sm:inline">দেখা বাসা</span> <span>(${viewCount})</span>
                 </button>
                 <a href="tel:${u.phoneNumber}" class="p-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs transition-all" title="কল দিন">
@@ -1341,6 +1505,39 @@
 
       document.getElementById('uvmTotalViewsText').textContent = `মোট দেখা বাসা: ${props.length}টি`;
 
+      // Populate CRM info
+      const lead = data.crmLead || {};
+      document.getElementById('crmPrioritySelect').value = lead.priority || 'MEDIUM';
+      document.getElementById('crmStatusSelect').value = lead.leadStatus || 'NEW';
+      if (lead.nextFollowUpDate) {
+        document.getElementById('crmNextFollowUpInput').value = new Date(lead.nextFollowUpDate).toISOString().split('T')[0];
+      } else {
+        document.getElementById('crmNextFollowUpInput').value = '';
+      }
+
+      // Limit Info
+      const currentLimit = data.currentLimit || 3;
+      const currentCount = data.currentCount || 0;
+      document.getElementById('uvmLimitInfo').textContent = `${currentLimit} টি`;
+      document.getElementById('uvmCountInfo').textContent = `(দেখা হয়েছে ${currentCount}টি)`;
+
+      // Notes History
+      const notesContainer = document.getElementById('crmNotesHistory');
+      const notes = lead.notes || [];
+      if (!notes.length) {
+        notesContainer.innerHTML = `<div class="text-[11px] text-slate-400 italic py-1">কোনো পূর্ববর্তী নোট নেই</div>`;
+      } else {
+        notesContainer.innerHTML = notes.map(n => `
+          <div class="bg-slate-50 border border-slate-100 rounded-xl p-2 text-xs flex justify-between items-start gap-2">
+            <div>
+              <p class="text-slate-800 font-medium">${n.text}</p>
+              <span class="text-[10px] text-slate-400 font-mono">${new Date(n.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short' })}, ${new Date(n.createdAt).toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit' })} • ${n.adminName || 'Admin'}</span>
+            </div>
+          </div>
+        `).join('');
+      }
+      document.getElementById('crmNewNoteInput').value = '';
+
       // Dynamic Call Script based on the areas viewed
       const areas = Array.from(new Set(props.map(p => p.area).filter(Boolean)));
       const areaText = areas.length ? areas.join(', ') : 'আপনার পছন্দের এলাকা';
@@ -1425,6 +1622,122 @@
         openUserViewedModal(currentViewedUserId);
         fetchUsers();
         fetchStats();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function autoSaveCrmLead() {
+      if (!currentViewedUser?.phoneNumber) return;
+      const phone = currentViewedUser.phoneNumber;
+      const statusLabel = document.getElementById('crmSavingStatus');
+      statusLabel.textContent = 'সেভ হচ্ছে...';
+
+      const payload = {
+        phoneNumber: phone,
+        userName: currentViewedUser.name || '',
+        priority: document.getElementById('crmPrioritySelect').value,
+        leadStatus: document.getElementById('crmStatusSelect').value,
+        nextFollowUpDate: document.getElementById('crmNextFollowUpInput').value || null,
+      };
+
+      try {
+        await apiCall('/crm/lead', 'POST', payload);
+        statusLabel.textContent = '✓ সংরক্ষিত';
+        setTimeout(() => { statusLabel.textContent = 'স্বয়ংক্রিয় সেভ হয়'; }, 2000);
+        fetchUsers();
+        fetchStats();
+      } catch (err) {
+        showToast(err.message, true);
+        statusLabel.textContent = 'সেভ ব্যর্থ';
+      }
+    }
+
+    async function submitCrmNote() {
+      if (!currentViewedUser?.phoneNumber) return;
+      const phone = currentViewedUser.phoneNumber;
+      const noteInput = document.getElementById('crmNewNoteInput');
+      const noteText = noteInput.value.trim();
+      if (!noteText) return;
+
+      const btn = document.getElementById('btnSaveCrmNote');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> সেভ...';
+
+      const payload = {
+        phoneNumber: phone,
+        userName: currentViewedUser.name || '',
+        priority: document.getElementById('crmPrioritySelect').value,
+        leadStatus: document.getElementById('crmStatusSelect').value,
+        nextFollowUpDate: document.getElementById('crmNextFollowUpInput').value || null,
+        newNote: noteText,
+        adminName: currentAdmin?.name || 'Admin',
+      };
+
+      try {
+        await apiCall('/crm/lead', 'POST', payload);
+        showToast('নোট সফলভাবে যুক্ত হয়েছে');
+        noteInput.value = '';
+        openUserViewedModal(currentViewedUserId);
+        fetchUsers();
+      } catch (err) {
+        showToast(err.message, true);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-plus"></i> <span>নোট যোগ করুন</span>';
+      }
+    }
+
+    async function quickAddLimit(addCount) {
+      if (!currentViewedUser?.phoneNumber) return;
+      const phone = currentViewedUser.phoneNumber;
+      const currentLimit = parseInt(document.getElementById('uvmLimitInfo').textContent) || 3;
+      const targetLimit = currentLimit + addCount;
+
+      try {
+        const res = await apiCall(`/users/${phone}/set-limit`, 'POST', { limit: targetLimit });
+        showToast(res.message);
+        openUserViewedModal(currentViewedUserId);
+        fetchUsers();
+        fetchStats();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    async function quickSetLimit(targetLimit) {
+      if (!currentViewedUser?.phoneNumber) return;
+      const phone = currentViewedUser.phoneNumber;
+
+      try {
+        const res = await apiCall(`/users/${phone}/set-limit`, 'POST', { limit: targetLimit });
+        showToast(res.message);
+        openUserViewedModal(currentViewedUserId);
+        fetchUsers();
+        fetchStats();
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    }
+
+    function promptCustomLimit() {
+      if (!currentViewedUser?.phoneNumber) return;
+      const phone = currentViewedUser.phoneNumber;
+      const input = prompt('এই গ্রাহকের জন্য মোট কতটি ফ্রি নম্বর দেখার সুযোগ দিতে চান?', '10');
+      if (input) {
+        const num = parseInt(input);
+        if (!isNaN(num) && num > 0) {
+          quickSetLimit(num);
+        }
+      }
+    }
+
+    async function quickAddLimitDirect(phone, count) {
+      try {
+        const res = await apiCall(`/users/${phone}/set-limit`, 'POST', { limit: 3 + count });
+        showToast(`${phone} এর লিমিট বাড়িয়ে ${3 + count}টি করা হয়েছে!`);
+        fetchStats();
+        fetchUsers();
       } catch (err) {
         showToast(err.message, true);
       }

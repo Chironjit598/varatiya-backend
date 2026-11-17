@@ -317,6 +317,60 @@ class AdminController {
       next(error);
     }
   }
+
+  /**
+   * API: Save or Update CRM Lead details (notes, priority, follow-up, customLimit)
+   * POST /admin/api/crm/lead
+   */
+  async saveCrmLead(req, res, next) {
+    try {
+      const result = await adminService.saveCrmLead(req.body);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result.lead,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Set or increase custom free view limit for user/device
+   * POST /admin/api/users/:id/set-limit
+   */
+  async setUserLimit(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { limit } = req.body;
+      const result = await adminService.setUserCustomLimit(id, limit);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Get CRM leads list
+   * GET /admin/api/crm/leads
+   */
+  async getCrmLeads(req, res, next) {
+    try {
+      const { filter, page, limit } = req.query;
+      const result = await adminService.getCrmLeads({ filter, page, limit });
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'CRM leads loaded',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = new AdminController();

@@ -45,6 +45,10 @@ const guestDeviceTrackingSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    customLimit: {
+      type: Number,
+      default: null,
+    },
   },
   {
     timestamps: true,
