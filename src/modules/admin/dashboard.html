@@ -341,15 +341,24 @@
           : '<span class="text-slate-400">বাসার তথ্য লোড হয়নি</span>';
 
         const phoneDisplay = d.matchedPhone 
-          ? `<span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">${d.matchedPhone}</span>`
-          : `<span class="text-slate-400 text-xs italic">গেস্ট মোড (নম্বর দেয়নি)</span>`;
+          ? `
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="font-bold text-sm text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-300 font-mono tracking-wide">${d.matchedPhone}</span>
+              <a href="tel:${d.matchedPhone}" class="text-emerald-600 hover:text-emerald-800 p-1 text-sm" title="কল দিন"><i class="fa-solid fa-phone"></i></a>
+              <a href="https://wa.me/88${d.matchedPhone}" target="_blank" class="text-emerald-600 hover:text-emerald-800 p-1 text-sm" title="হোয়াটসঅ্যাপ"><i class="fa-brands fa-whatsapp"></i></a>
+            </div>
+            ${d.matchedUserName ? `<div class="text-xs text-slate-600 font-semibold mt-0.5">${d.matchedUserName}</div>` : ''}
+          `
+          : `<div class="text-xs text-slate-400 italic mt-0.5 bg-slate-100 px-2 py-1 rounded inline-block">গেস্ট ইউজার (নম্বর দেয়নি)</div>`;
 
         const statusDisplay = d.isPaid
-          ? `<span class="bg-teal-100 text-teal-800 text-xs px-2 py-0.5 rounded-full font-bold">পেইড সক্রিয়</span>`
-          : `<span class="bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full font-bold">পে-ওয়াল ব্লক</span>`;
+          ? `<span class="bg-teal-100 text-teal-800 text-xs px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1"><i class="fa-solid fa-check"></i> পেইড সক্রিয়</span>`
+          : `<span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-bold inline-flex items-center gap-1"><i class="fa-solid fa-lock"></i> পে-ওয়াল ব্লক</span>`;
 
         const actionBtn = d.matchedPhone
-          ? `<button onclick="quickApprove('${d.matchedPhone}')" class="px-2.5 py-1 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold transition-all">আনলক দিন</button>`
+          ? (d.isPaid
+              ? `<span class="text-xs text-teal-600 font-bold"><i class="fa-solid fa-circle-check"></i> আনলকড</span>`
+              : `<button onclick="quickApprove('${d.matchedPhone}')" class="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-sm flex items-center gap-1 ml-auto"><i class="fa-solid fa-unlock"></i> আনলক দিন</button>`)
           : `<span class="text-slate-300 text-xs">-</span>`;
 
         return `
@@ -538,3 +547,4 @@
   </script>
 </body>
 </html>
+

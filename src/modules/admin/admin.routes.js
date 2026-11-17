@@ -13,3 +13,4 @@ router.post('/api/mode', adminController.setMode.bind(adminController));
 router.post('/api/approve-user', adminController.approveUser.bind(adminController));
 
 module.exports = router;
+

@@ -1139,7 +1139,15 @@ class PropertyService {
         monthYear: currentMonthYear,
         viewedPropertyIds: [],
         count: 0,
+        phoneNumber: user?.phoneNumber || null,
+        userName: user?.name || null,
+        userId: user?._id || user?.id || null,
       });
+    } else if (user && !tracking.phoneNumber) {
+      tracking.phoneNumber = user.phoneNumber;
+      tracking.userName = user.name;
+      tracking.userId = user._id || user.id;
+      await tracking.save();
     }
 
     const maxLimit = 3;
@@ -1179,6 +1187,11 @@ class PropertyService {
     tracking.viewedPropertyIds.push(property._id);
     tracking.count = tracking.viewedPropertyIds.length;
     tracking.lastViewedAt = new Date();
+    if (user) {
+      tracking.phoneNumber = user.phoneNumber;
+      tracking.userName = user.name;
+      tracking.userId = user._id || user.id;
+    }
     await tracking.save();
 
     const remaining = Math.max(0, maxLimit - tracking.count);

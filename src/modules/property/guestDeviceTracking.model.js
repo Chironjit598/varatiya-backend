@@ -24,6 +24,23 @@ const guestDeviceTrackingSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    phoneNumber: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    userName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+      index: true,
+    },
     lastViewedAt: {
       type: Date,
       default: Date.now,

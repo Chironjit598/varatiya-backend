@@ -30,6 +30,23 @@ class AuthController {
       const { email, phoneNumber, otp, purpose } = req.body;
       const result = await authService.verifyOtp({ email, phoneNumber, otp, purpose });
 
+      const resolvedDeviceId = req.headers['x-device-id'] || req.body.deviceId;
+      if (resolvedDeviceId && result.user) {
+        try {
+          const GuestDeviceTracking = require('../property/guestDeviceTracking.model');
+          await GuestDeviceTracking.updateMany(
+            { deviceId: resolvedDeviceId },
+            {
+              $set: {
+                phoneNumber: result.user.phoneNumber,
+                userName: result.user.name,
+                userId: result.user._id || result.user.id,
+              },
+            }
+          );
+        } catch (_) {}
+      }
+
       return ApiResponse.success(res, {
         statusCode: 200,
         message: 'Account verified successfully',
@@ -67,6 +84,23 @@ class AuthController {
     try {
       const { phoneNumber, email, identifier, password } = req.body;
       const result = await authService.login({ phoneNumber, email, identifier, password });
+
+      const resolvedDeviceId = req.headers['x-device-id'] || req.body.deviceId;
+      if (resolvedDeviceId && result.user) {
+        try {
+          const GuestDeviceTracking = require('../property/guestDeviceTracking.model');
+          await GuestDeviceTracking.updateMany(
+            { deviceId: resolvedDeviceId },
+            {
+              $set: {
+                phoneNumber: result.user.phoneNumber,
+                userName: result.user.name,
+                userId: result.user._id || result.user.id,
+              },
+            }
+          );
+        } catch (_) {}
+      }
 
       return ApiResponse.success(res, {
         statusCode: 200,

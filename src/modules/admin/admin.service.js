@@ -63,19 +63,34 @@ class AdminService {
         .select('title area rent contactPhone landlordPhone propertyCode')
         .lean();
 
-      // Check if device is linked to a customer in PendingVerification or UserInterest
-      const pending = await PendingVerification.findOne({ deviceId: dev.deviceId });
-      const interest = await UserInterest.findOne({ deviceId: dev.deviceId });
-      let matchedPhone = pending?.phoneNumber || null;
-      let matchedUser = null;
+      // Check if device already has phoneNumber or is linked in PendingVerification / UserInterest
+      let matchedPhone = dev.phoneNumber || null;
+      let matchedUserName = dev.userName || null;
+      let isPaid = false;
 
-      if (!matchedPhone && interest?.userId) {
-        matchedUser = await User.findById(interest.userId).select('name phoneNumber isPaid');
-        matchedPhone = matchedUser?.phoneNumber || null;
+      if (!matchedPhone) {
+        const pending = await PendingVerification.findOne({ deviceId: dev.deviceId });
+        if (pending?.phoneNumber) matchedPhone = pending.phoneNumber;
       }
 
-      if (matchedPhone && !matchedUser) {
-        matchedUser = await User.findOne({ phoneNumber: matchedPhone }).select('name phoneNumber isPaid');
+      if (!matchedPhone) {
+        const interest = await UserInterest.findOne({ deviceId: dev.deviceId });
+        if (interest?.userId) {
+          const u = await User.findById(interest.userId).select('name phoneNumber isPaid');
+          if (u) {
+            matchedPhone = u.phoneNumber;
+            matchedUserName = u.name;
+            isPaid = u.isPaid;
+          }
+        }
+      }
+
+      if (matchedPhone && (!matchedUserName || !isPaid)) {
+        const u = await User.findOne({ phoneNumber: matchedPhone }).select('name phoneNumber isPaid');
+        if (u) {
+          matchedUserName = u.name;
+          isPaid = u.isPaid;
+        }
       }
 
       enrichedLimitDevices.push({
@@ -177,3 +192,4 @@ class AdminService {
 }
 
 module.exports = new AdminService();
+

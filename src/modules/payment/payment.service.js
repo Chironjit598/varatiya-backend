@@ -359,6 +359,19 @@ class PaymentService {
     const monthYear = this.getCurrentMonthYear();
     const minThreshold = Number(env.MIN_PAYMENT_THRESHOLD) || 40;
 
+    // Immediately link this customer phone number to their device tracking record
+    if (deviceId) {
+      try {
+        const GuestDeviceTracking = require('../property/guestDeviceTracking.model');
+        await GuestDeviceTracking.updateMany(
+          { deviceId },
+          { $set: { phoneNumber: cleanPhone } }
+        );
+      } catch (err) {
+        console.error('[Device Tracking Link Error]:', err.message);
+      }
+    }
+
     // Check if user already exists and is already paid for current month
     const existingUser = await User.findOne({ phoneNumber: cleanPhone });
     if (existingUser && existingUser.isPaid && existingUser.paidMonth === monthYear) {
