@@ -43,10 +43,15 @@ const validateRegister = (req, res, next) => {
     }
   }
 
-  if (!email || typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) {
-    errors.push('সঠিক ইমেইল ঠিকানা প্রদান করুন (Valid email address is required).');
+  // Email is optional for registration
+  if (email && typeof email === 'string' && email.trim().length > 0) {
+    if (!EMAIL_REGEX.test(email.trim())) {
+      errors.push('সঠিক ইমেইল ঠিকানা প্রদান করুন (Valid email address is required).');
+    } else {
+      req.body.email = email.trim().toLowerCase();
+    }
   } else {
-    req.body.email = email.trim().toLowerCase();
+    req.body.email = null;
   }
 
   if (!password || typeof password !== 'string' || password.length < 6) {
