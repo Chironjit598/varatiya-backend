@@ -1160,6 +1160,19 @@ class PropertyService {
       ? tracking.customLimit
       : ((user?.customLimit !== undefined && user?.customLimit !== null) ? user.customLimit : baseLimit);
 
+    // If free limit is 0 (or less), immediately enforce connection fee
+    if (maxLimit <= 0) {
+      return {
+        unlocked: false,
+        isPaid: false,
+        limitReached: true,
+        remaining: 0,
+        contactPhone: null,
+        message: 'বাড়িওয়ালার নম্বর সরাসরি দেখতে মাত্র ৫০ টাকার কানেকশন চার্জ দিয়ে পুরো মাস আনলিমিটেড এক্সেস নিন।',
+        currentMonthName: paymentService.getBengaliMonthName(),
+      };
+    }
+
     // Check if this property was already viewed by this device this month
     const alreadyViewed = tracking.viewedPropertyIds.some(
       (id) => id.toString() === property._id.toString()
