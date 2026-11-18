@@ -1120,10 +1120,10 @@ class PropertyService {
       };
     }
 
-    // 2. Free / Guest user quota check using deviceId or user id
-    const identifier = deviceId || (user ? String(user._id || user.id) : null);
+    // 2. Free / Quota check strictly against User Account (falls back to deviceId if not logged in)
+    const identifier = user ? `user_${user._id || user.id}` : (deviceId || null);
     if (!identifier) {
-      const error = new Error('ডিভাইস আইডি পাওয়া যায়নি');
+      const error = new Error('ইউজার আইডি বা ডিভাইস আইডি পাওয়া যায়নি');
       error.statusCode = 400;
       throw error;
     }
@@ -1156,9 +1156,9 @@ class PropertyService {
       : ((env.GUEST_FREE_CONTACT_LIMIT !== undefined && env.GUEST_FREE_CONTACT_LIMIT !== '')
           ? Number(env.GUEST_FREE_CONTACT_LIMIT)
           : 0);
-    const maxLimit = (tracking.customLimit !== undefined && tracking.customLimit !== null)
-      ? tracking.customLimit
-      : ((user?.customLimit !== undefined && user?.customLimit !== null) ? user.customLimit : baseLimit);
+    const maxLimit = (user?.customLimit !== undefined && user?.customLimit !== null)
+      ? Number(user.customLimit)
+      : ((tracking.customLimit !== undefined && tracking.customLimit !== null) ? Number(tracking.customLimit) : baseLimit);
 
     // If free limit is 0 (or less), immediately enforce connection fee
     if (maxLimit <= 0) {
