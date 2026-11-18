@@ -31,7 +31,7 @@ class PaymentController {
 
   /**
    * POST /api/payments/submit-connection
-   * Customer enters sender phone number from BashaBondhu app
+   * Customer enters sender phone number from BasaBondhu app
    */
   async submitConnection(req, res, next) {
     try {

@@ -32,16 +32,16 @@ if (env.SMTP_USER && env.SMTP_PASS) {
 const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
   const isRegistration = purpose === 'REGISTRATION';
   const subject = isRegistration
-    ? `বাসাবন্ধু (BashaBondhu) - রেজিস্ট্রেশন ভেরিফিকেশন কোড: ${otp}`
-    : `বাসাবন্ধু (BashaBondhu) - পাসওয়ার্ড রিসেট ভেরিফিকেশন কোড: ${otp}`;
+    ? `বাসাবন্ধু (BasaBondhu) - রেজিস্ট্রেশন ভেরিফিকেশন কোড: ${otp}`
+    : `বাসাবন্ধু (BasaBondhu) - পাসওয়ার্ড রিসেট ভেরিফিকেশন কোড: ${otp}`;
 
   const headingText = isRegistration
     ? 'অ্যাকাউন্ট ভেরিফিকেশন কোড'
     : 'পাসওয়ার্ড রিসেট ভেরিফিকেশন কোড';
 
   const subText = isRegistration
-    ? 'বাসাবন্ধু (BashaBondhu) অ্যাপে অ্যাকাউন্ট খোলার জন্য ধন্যবাদ। আপনার ইমেইল যাচাই করতে নিচের ৪ ডিজিটের ওটিপি কোডটি ব্যবহার করুন:'
-    : 'আপনার বাসাবন্ধু (BashaBondhu) অ্যাকাউন্টের পাসওয়ার্ড রিসেট করার জন্য অনুরোধ পাওয়া গেছে। পাসওয়ার্ড পরিবর্তন করতে নিচের ওটিপি কোডটি ব্যবহার করুন:';
+    ? 'বাসাবন্ধু (BasaBondhu) অ্যাপে অ্যাকাউন্ট খোলার জন্য ধন্যবাদ। আপনার ইমেইল যাচাই করতে নিচের ৪ ডিজিটের ওটিপি কোডটি ব্যবহার করুন:'
+    : 'আপনার বাসাবন্ধু (BasaBondhu) অ্যাকাউন্টের পাসওয়ার্ড রিসেট করার জন্য অনুরোধ পাওয়া গেছে। পাসওয়ার্ড পরিবর্তন করতে নিচের ওটিপি কোডটি ব্যবহার করুন:';
 
   const html = `
     <!DOCTYPE html>
@@ -63,7 +63,7 @@ const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
     </head>
     <body>
       <div class="card">
-        <div class="logo">🏠 বাসাবন্ধু (BashaBondhu)</div>
+        <div class="logo">🏠 বাসাবন্ধু (BasaBondhu)</div>
         <div class="heading">${headingText}</div>
         <div class="text">${subText}</div>
         <div class="otp-box">
@@ -72,7 +72,7 @@ const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
         <div class="warning">⚠️ এই কোডটি ৫ মিনিটের জন্য কার্যকর থাকবে। এটি কারও সাথে শেয়ার করবেন না।</div>
         <div class="footer">
           যদি আপনি এই কোডটির জন্য অনুরোধ না করে থাকেন, তবে অনুগ্রহ করে এই ইমেইলটি উপেক্ষা করুন।<br>
-          &copy; ২০২৬ বাসাবন্ধু (BashaBondhu) টিম। সর্বস্বত্ব সংরক্ষিত।
+          &copy; ২০২৬ বাসাবন্ধু (BasaBondhu) টিম। সর্বস্বত্ব সংরক্ষিত।
         </div>
       </div>
     </body>
@@ -94,7 +94,7 @@ const sendEmailOtp = async ({ email, otp, purpose = 'REGISTRATION' }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: env.RESEND_FROM || 'BashaBondhu <support@basabondhu.com>',
+          from: env.RESEND_FROM || 'BasaBondhu <support@basabondhu.com>',
           to: email,
           subject,
           html,
