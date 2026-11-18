@@ -34,7 +34,8 @@ const appConfigSchema = new mongoose.Schema(
     },
     freeGuestLimit: {
       type: Number,
-      default: 3,
+      default: 0,
+      min: 0,
     },
     adminPasskey: {
       type: String,

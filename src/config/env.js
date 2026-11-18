@@ -30,6 +30,10 @@ const env = {
   SMTP_USER: process.env.SMTP_USER || process.env.EMAIL_USER || '',
   SMTP_PASS: process.env.SMTP_PASS || process.env.EMAIL_PASS || '',
   EMAIL_FROM: process.env.EMAIL_FROM || '"BasaBondhu" <support@basabondhu.com>',
+  GUEST_FREE_CONTACT_LIMIT:
+    process.env.GUEST_FREE_CONTACT_LIMIT !== undefined
+      ? Number(process.env.GUEST_FREE_CONTACT_LIMIT)
+      : 0,
 };
 
 module.exports = env;

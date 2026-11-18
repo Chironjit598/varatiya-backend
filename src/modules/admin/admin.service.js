@@ -499,8 +499,17 @@ class AdminService {
       monthYear: currentMonthYear,
     }).lean();
 
-    const baseLimit = paymentService.getCachedConfig()?.freeGuestLimit || 3;
-    const currentLimit = tracking?.customLimit || crmLead?.customLimit || user.customLimit || baseLimit;
+    const cachedLimit = paymentService.getCachedConfig()?.freeGuestLimit;
+    const baseLimit = (cachedLimit !== undefined && cachedLimit !== null)
+      ? Number(cachedLimit)
+      : ((env.GUEST_FREE_CONTACT_LIMIT !== undefined && env.GUEST_FREE_CONTACT_LIMIT !== '')
+          ? Number(env.GUEST_FREE_CONTACT_LIMIT)
+          : 0);
+    const currentLimit = (tracking?.customLimit !== undefined && tracking?.customLimit !== null)
+      ? tracking.customLimit
+      : ((crmLead?.customLimit !== undefined && crmLead?.customLimit !== null)
+          ? crmLead.customLimit
+          : ((user.customLimit !== undefined && user.customLimit !== null) ? user.customLimit : baseLimit));
     const currentCount = tracking?.count || 0;
 
     return {

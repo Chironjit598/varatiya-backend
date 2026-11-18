@@ -127,18 +127,15 @@ class AuthService {
         }
 
         existingUser.name = name.trim();
-        existingUser.email = cleanEmail;
+        if (cleanEmail) existingUser.email = cleanEmail;
         existingUser.password = password; // Hashed by pre-save
         if (role) existingUser.role = role;
         existingUser.hasEmailLinked = Boolean(cleanEmail);
+        existingUser.isPhoneVerified = true;
+        existingUser.isEmailVerified = true;
         existingUser.authProvider = 'standard';
         await existingUser.save();
 
-        const otpResult = await this.createAndSendOtp({
-          email: cleanEmail,
-          phoneNumber: cleanPhone,
-          purpose: 'REGISTRATION',
-        });
         const tokens = this.generateTokens(existingUser);
 
         return {
@@ -146,10 +143,9 @@ class AuthService {
           accessToken: tokens.accessToken,
           refreshToken: tokens.refreshToken,
           name: existingUser.name,
-          otpSent: otpResult.sent,
-          deliveryChannel: otpResult.channel,
           isAccountUpgrade: true,
-          message: 'আপনার পূর্ববর্তী পেইড অ্যাকাউন্টটিতে ইমেইল ও নতুন পাসওয়ার্ড যুক্ত করা হয়েছে!',
+          isVerified: true,
+          message: 'আপনার অ্যাকাউন্টটি সফলভাবে আপডেট করা হয়েছে!',
         };
       }
 
@@ -174,16 +170,10 @@ class AuthService {
       email: cleanEmail,
       password,
       role: role || 'Seeker',
-      isPhoneVerified: false,
-      isEmailVerified: false,
+      isPhoneVerified: true,
+      isEmailVerified: true,
     });
 
-    // Generate & send OTP to user's email (or phone if email not present)
-    const otpResult = await this.createAndSendOtp({
-      email: cleanEmail,
-      phoneNumber: cleanPhone,
-      purpose: 'REGISTRATION',
-    });
     const tokens = this.generateTokens(user);
 
     return {
@@ -191,7 +181,8 @@ class AuthService {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       name: user.name,
-      ...otpResult,
+      isVerified: true,
+      message: 'রেজিস্ট্রেশন সফল হয়েছে!',
     };
   }
 
@@ -352,11 +343,11 @@ class AuthService {
       throw error;
     }
 
-    if (!user.isPhoneVerified && !user.isEmailVerified) {
-      const error = new Error('অ্যাকাউন্ট ভেরিফাই করা হয়নি। দয়া করে ইমেইল ওটিপি ভেরিফিকেশন সম্পন্ন করুন। (Account not verified. Please verify your email OTP before logging in.)');
-      error.statusCode = 403;
-      error.isVerified = false;
-      throw error;
+    // Auto-mark verified so existing users are never locked out of login
+    if (!user.isPhoneVerified || !user.isEmailVerified) {
+      user.isPhoneVerified = true;
+      user.isEmailVerified = true;
+      await user.save();
     }
 
     const isPasswordMatch = await user.comparePassword(cleanPassword);

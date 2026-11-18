@@ -39,7 +39,9 @@ class PaymentService {
           nagadNumber: process.env.NAGAD_PERSONAL_NUMBER || '01306070598',
           whatsAppNumber: process.env.WHATSAPP_SUPPORT_NUMBER || '01726228790',
           feeAmount: Number(env.CONNECTION_FEE) || 50,
-          freeGuestLimit: Number(env.GUEST_FREE_CONTACT_LIMIT) || 3,
+          freeGuestLimit: (env.GUEST_FREE_CONTACT_LIMIT !== undefined && env.GUEST_FREE_CONTACT_LIMIT !== '')
+            ? Number(env.GUEST_FREE_CONTACT_LIMIT)
+            : 0,
           adminPasskey: '5980',
         });
       }
@@ -582,7 +584,11 @@ class PaymentService {
       complianceHeading: 'মাঠপর্যায়ে টু-লেট সংগ্রহ ও বাড়িওয়ালার সাথে সরাসরি কানেকশন সার্ভিস চার্জ',
       emotionalHook:
         'রোদে পুড়ে, জ্যাম ঠেলে বাড়ি বাড়ি ঘুরে বাসা খোঁজার দিন শেষ! মাত্র ৫০ টাকায় পুরো মাস সরাসরি বাড়িওয়ালার সাথে কথা বলুন।',
-      freeGuestLimit: Number(cfg.freeGuestLimit) || Number(env.GUEST_FREE_CONTACT_LIMIT) || 3,
+      freeGuestLimit: (cfg?.freeGuestLimit !== undefined && cfg?.freeGuestLimit !== null)
+        ? Number(cfg.freeGuestLimit)
+        : ((env.GUEST_FREE_CONTACT_LIMIT !== undefined && env.GUEST_FREE_CONTACT_LIMIT !== '')
+            ? Number(env.GUEST_FREE_CONTACT_LIMIT)
+            : 0),
       noticeBanner: cfg.noticeBanner || '',
     };
   }

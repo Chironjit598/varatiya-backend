@@ -1150,8 +1150,15 @@ class PropertyService {
       await tracking.save();
     }
 
-    const baseLimit = paymentService.getCachedConfig()?.freeGuestLimit || Number(env.GUEST_FREE_CONTACT_LIMIT) || 3;
-    const maxLimit = tracking.customLimit || user?.customLimit || baseLimit;
+    const cachedLimit = paymentService.getCachedConfig()?.freeGuestLimit;
+    const baseLimit = (cachedLimit !== undefined && cachedLimit !== null)
+      ? Number(cachedLimit)
+      : ((env.GUEST_FREE_CONTACT_LIMIT !== undefined && env.GUEST_FREE_CONTACT_LIMIT !== '')
+          ? Number(env.GUEST_FREE_CONTACT_LIMIT)
+          : 0);
+    const maxLimit = (tracking.customLimit !== undefined && tracking.customLimit !== null)
+      ? tracking.customLimit
+      : ((user?.customLimit !== undefined && user?.customLimit !== null) ? user.customLimit : baseLimit);
 
     // Check if this property was already viewed by this device this month
     const alreadyViewed = tracking.viewedPropertyIds.some(
@@ -1173,13 +1180,16 @@ class PropertyService {
 
     // Quota exhausted
     if (tracking.count >= maxLimit) {
+      const quotaMsg = maxLimit > 0
+        ? `আপনার এই মাসের ${maxLimit}টি ফ্রি নম্বর দেখার সুযোগ শেষ হয়েছে! পুরো মাস আনলিমিটেড দেখতে মাত্র ৫০ টাকার কানেকশন চার্জ দিন।`
+        : 'বাড়িওয়ালার নম্বর সরাসরি দেখতে মাত্র ৫০ টাকার কানেকশন চার্জ দিয়ে পুরো মাস আনলিমিটেড এক্সেস নিন।';
       return {
         unlocked: false,
         isPaid: false,
         limitReached: true,
         remaining: 0,
         contactPhone: null,
-        message: `আপনার এই মাসের ${maxLimit}টি ফ্রি নম্বর দেখার সুযোগ শেষ হয়েছে! পুরো মাস আনলিমিটেড দেখতে মাত্র ৫০ টাকার কানেকশন চার্জ দিন।`,
+        message: quotaMsg,
         currentMonthName: paymentService.getBengaliMonthName(),
       };
     }

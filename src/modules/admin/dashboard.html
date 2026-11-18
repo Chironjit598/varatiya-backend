@@ -3107,7 +3107,7 @@
       document.getElementById('cfgNagad').value = cfg.nagadNumber || '01306070598';
       document.getElementById('cfgWhatsapp').value = cfg.whatsAppNumber || '01726228790';
       document.getElementById('cfgFee').value = cfg.feeAmount || 50;
-      document.getElementById('cfgLimit').value = cfg.freeGuestLimit || 3;
+      document.getElementById('cfgLimit').value = (cfg.freeGuestLimit !== undefined && cfg.freeGuestLimit !== null) ? cfg.freeGuestLimit : 0;
       document.getElementById('cfgPasskey').value = cfg.adminPasskey || '5980';
       document.getElementById('cfgNotice').value = cfg.noticeBanner || '';
     } catch (err) {
