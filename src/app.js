@@ -93,6 +93,17 @@ app.get('/', (req, res) => {
 // Serve static uploads folder (accessible from mobile app & web)
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
+// Auto-redirect root requests on admin subdomain directly to /admin dashboard
+app.use((req, res, next) => {
+  const host = req.get('host') || '';
+  if (host.startsWith('admin.')) {
+    if (req.path === '/' || req.path === '') {
+      return res.redirect('/admin');
+    }
+  }
+  next();
+});
+
 // Mount module routes
 app.use('/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
