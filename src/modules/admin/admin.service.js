@@ -779,9 +779,6 @@ class AdminService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
-        .select(
-          'propertyCode title description area subArea rentPrice contactPhone landlordPhone landlordName isActive isVerified createdAt alreadyRentedReportCount'
-        )
         .lean(),
     ]);
 
