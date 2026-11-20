@@ -140,6 +140,11 @@
             <i class="fa-solid fa-house-chimney text-amber-500"></i>
             <span>বাসা ও পোস্ট</span>
           </button>
+          <button onclick="switchTab('houseHunter')" id="nav-houseHunter" class="tab-inactive px-3 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap transition-all">
+            <i class="fa-solid fa-person-shelter text-emerald-500"></i>
+            <span>হোম হান্টার রিকোয়েস্ট</span>
+            <span id="tabHouseHunterBadge" class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-1.5 py-0.5 rounded-full">0</span>
+          </button>
           <button onclick="switchTab('reports')" id="nav-reports" class="tab-inactive px-3 py-2.5 rounded-lg flex items-center gap-2 whitespace-nowrap transition-all">
             <i class="fa-solid fa-triangle-exclamation text-orange-500"></i>
             <span>রিপোর্ট ও অভিযোগ</span>
@@ -497,6 +502,57 @@
           <div class="flex gap-2">
             <button onclick="prevPropPage()" id="btnPrevPropPage" class="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50">পূর্ববর্তী</button>
             <button onclick="nextPropPage()" id="btnNextPropPage" class="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50">পরবর্তী</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <!-- TAB: HOUSE HUNTER REQUESTS                                  -->
+      <!-- ═══════════════════════════════════════════════════════════ -->
+      <section id="view-houseHunter" class="space-y-4 hidden">
+        <!-- Header -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <h2 class="text-base font-black text-slate-900">হোম হান্টার রিকোয়েস্ট ও লিড ব্যবস্থাপনা</h2>
+            </div>
+            <p class="text-xs text-slate-500 mt-0.5">যেসব ক্লায়েন্ট ১,০০০ টাকা ফিতে পছন্দের বাসা খুঁজে পাওয়ার জন্য অ্যাপে রিকোয়েস্ট জমা দিয়েছেন</p>
+          </div>
+          <button onclick="fetchHouseHunterRequests()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-auto">
+            <i class="fa-solid fa-arrows-rotate"></i>
+            <span>রিফ্রেশ</span>
+          </button>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div class="bg-white p-3.5 rounded-2xl border border-slate-200 flex flex-wrap gap-2.5 items-center justify-between text-xs">
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <span class="font-bold text-slate-600 mr-1">ফিল্টার:</span>
+            <button onclick="filterHouseHunter('all')" id="btnHunterFilter-all" class="px-3 py-1.5 rounded-lg font-bold bg-emerald-600 text-white shadow-sm transition-all">সকল</button>
+            <button onclick="filterHouseHunter('PENDING')" id="btnHunterFilter-PENDING" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">নতুন (Pending)</button>
+            <button onclick="filterHouseHunter('CONTACTED')" id="btnHunterFilter-CONTACTED" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">কথা হয়েছে (Contacted)</button>
+            <button onclick="filterHouseHunter('PAID_ACTIVE')" id="btnHunterFilter-PAID_ACTIVE" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">পেমেন্ট নিশ্চিত (Active)</button>
+            <button onclick="filterHouseHunter('COMPLETED')" id="btnHunterFilter-COMPLETED" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">সম্পন্ন (Completed)</button>
+            <button onclick="filterHouseHunter('REFUNDED')" id="btnHunterFilter-REFUNDED" class="px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">রিফান্ড (Refunded)</button>
+          </div>
+          <div class="relative w-full sm:w-64">
+            <input type="text" id="hunterSearchInput" onkeyup="debounceHunterSearch()" placeholder="নাম, ফোন বা এলাকা সার্চ..." class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-400"></i>
+          </div>
+        </div>
+
+        <!-- Requests Grid / List -->
+        <div id="houseHunterGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Populated by JS -->
+        </div>
+
+        <!-- Pagination -->
+        <div class="p-3 bg-white border border-slate-200 rounded-xl flex justify-between items-center text-xs text-slate-500">
+          <span id="hunterPaginationText">লোড হচ্ছে...</span>
+          <div class="flex gap-2">
+            <button onclick="prevHunterPage()" id="btnPrevHunterPage" class="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50">পূর্ববর্তী</button>
+            <button onclick="nextHunterPage()" id="btnNextHunterPage" class="px-3 py-1 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50">পরবর্তী</button>
           </div>
         </div>
       </section>
@@ -2070,7 +2126,7 @@
     // ─────────────────────────────────────────────────────────────
     // TAB NAVIGATION
     // ─────────────────────────────────────────────────────────────
-    const tabs = ['overview', 'limits', 'users', 'properties', 'reports', 'notifications', 'settings'];
+    const tabs = ['overview', 'limits', 'users', 'properties', 'houseHunter', 'reports', 'notifications', 'settings'];
 
     function switchTab(target) {
       if (target === 'settings' && currentAdmin && currentAdmin.role === 'manager') {
@@ -2095,6 +2151,7 @@
 
       if (target === 'users') fetchUsers();
       if (target === 'properties') fetchProperties();
+      if (target === 'houseHunter') fetchHouseHunterRequests();
       if (target === 'reports') fetchReports();
       if (target === 'notifications') {
         fetchAudienceCount();
@@ -4004,6 +4061,242 @@
     function nextPropPage() {
       propPage++;
       fetchProperties();
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // HOUSE HUNTER REQUESTS (ASSISTED HOME FINDING)
+    // ─────────────────────────────────────────────────────────────
+    let hunterFilter = 'all';
+    let hunterSearch = '';
+    let hunterPage = 1;
+    let hunterDebounceTimeout = null;
+
+    function debounceHunterSearch() {
+      clearTimeout(hunterDebounceTimeout);
+      hunterDebounceTimeout = setTimeout(() => {
+        hunterSearch = document.getElementById('hunterSearchInput').value.trim();
+        hunterPage = 1;
+        fetchHouseHunterRequests();
+      }, 300);
+    }
+
+    function filterHouseHunter(type) {
+      hunterFilter = type;
+      hunterPage = 1;
+      ['all', 'PENDING', 'CONTACTED', 'PAID_ACTIVE', 'COMPLETED', 'REFUNDED'].forEach(f => {
+        const btn = document.getElementById(`btnHunterFilter-${f}`);
+        if (btn) {
+          btn.className = f === type 
+            ? 'px-3 py-1.5 rounded-lg font-bold bg-emerald-600 text-white shadow-sm transition-all'
+            : 'px-3 py-1.5 rounded-lg font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all';
+        }
+      });
+      fetchHouseHunterRequests();
+    }
+
+    async function fetchHouseHunterRequests() {
+      const grid = document.getElementById('houseHunterGrid');
+      if (!grid) return;
+      grid.innerHTML = `<div class="col-span-full py-12 text-center text-slate-400"><i class="fa-solid fa-spinner animate-spin mr-1"></i> রিকোয়েস্ট লোড হচ্ছে...</div>`;
+
+      try {
+        const queryParams = new URLSearchParams({
+          page: hunterPage,
+          limit: 20,
+          status: hunterFilter,
+          search: hunterSearch
+        });
+
+        const res = await apiCall(`/house-hunter?${queryParams.toString()}`);
+        const requests = res.requests || [];
+        const pagination = res.pagination || { total: requests.length, page: 1, totalPages: 1 };
+        
+        const badge = document.getElementById('tabHouseHunterBadge');
+        if (badge) {
+          badge.textContent = pagination.total || '0';
+        }
+
+        renderHouseHunterRequests(requests, pagination);
+      } catch (err) {
+        grid.innerHTML = `<div class="col-span-full py-8 text-center text-rose-500 font-bold">${err.message}</div>`;
+      }
+    }
+
+    function renderHouseHunterRequests(requests, pagination) {
+      const grid = document.getElementById('houseHunterGrid');
+      document.getElementById('hunterPaginationText').textContent = `মোট রিকোয়েস্ট: ${pagination.total} (পৃষ্ঠা ${pagination.page} / ${pagination.totalPages})`;
+      document.getElementById('btnPrevHunterPage').disabled = pagination.page <= 1;
+      document.getElementById('btnNextHunterPage').disabled = pagination.page >= pagination.totalPages;
+
+      if (!requests.length) {
+        grid.innerHTML = `<div class="col-span-full py-12 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 font-medium">কোনো হোম হান্টার রিকোয়েস্ট পাওয়া যায়নি</div>`;
+        return;
+      }
+
+      const statusMap = {
+        'PENDING': { label: 'নতুন (Pending)', class: 'bg-amber-100 text-amber-800 border-amber-200' },
+        'CONTACTED': { label: 'কথা হয়েছে (Contacted)', class: 'bg-blue-100 text-blue-800 border-blue-200' },
+        'PAID_ACTIVE': { label: '১০০০৳ পেইড (Active)', class: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
+        'HOUSES_SHOWN': { label: 'বাসা দেখানো হয়েছে', class: 'bg-purple-100 text-purple-800 border-purple-200' },
+        'COMPLETED': { label: 'বাসা কনফার্ম (Completed)', class: 'bg-teal-100 text-teal-800 border-teal-200' },
+        'REFUNDED': { label: 'রিফান্ড করা হয়েছে', class: 'bg-rose-100 text-rose-800 border-rose-200' },
+        'CANCELLED': { label: 'বাতিল (Cancelled)', class: 'bg-slate-100 text-slate-700 border-slate-200' },
+      };
+
+      grid.innerHTML = requests.map(r => {
+        const id = r._id || r.id;
+        const curStatus = r.status || 'PENDING';
+        const st = statusMap[curStatus] || { label: curStatus, class: 'bg-slate-100 text-slate-700' };
+        const postDate = new Date(r.createdAt).toLocaleDateString('bn-BD', { day: 'numeric', month: 'short', year: 'numeric' });
+
+        return `
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col justify-between space-y-3 relative hover:border-emerald-300 transition-all">
+            <div>
+              <div class="flex justify-between items-start gap-2">
+                <div>
+                  <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-extrabold border ${st.class}">
+                    ● ${st.label}
+                  </span>
+                  <span class="inline-block px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 ml-1">
+                    ফি: ১,০০০৳
+                  </span>
+                </div>
+                <span class="text-[11px] text-slate-400 font-mono">${postDate}</span>
+              </div>
+
+              <!-- Client Info -->
+              <div class="mt-2.5 flex items-center justify-between">
+                <div>
+                  <h3 class="font-black text-slate-900 text-sm">${r.name || 'ব্যবহারকারী'}</h3>
+                  <a href="tel:${r.phone}" class="font-mono text-emerald-700 font-bold text-xs hover:underline flex items-center gap-1 mt-0.5">
+                    <i class="fa-solid fa-phone"></i> ${r.phone}
+                  </a>
+                </div>
+                <button onclick="navigator.clipboard.writeText('${r.phone}'); showToast('নম্বর কপি হয়েছে!');" class="p-1.5 px-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg border text-xs" title="কপি নম্বর">
+                  <i class="fa-solid fa-copy"></i>
+                </button>
+              </div>
+
+              <!-- Location & Budget -->
+              <div class="grid grid-cols-2 gap-2 mt-3 p-2.5 bg-slate-50/80 rounded-xl border border-slate-100 text-xs">
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-bold">কাঙ্ক্ষিত এলাকা</span>
+                  <span class="font-bold text-slate-800">${r.targetArea}${r.targetSubArea ? ' • ' + r.targetSubArea : ''}</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-bold">সর্বোচ্চ বাজেট</span>
+                  <span class="font-black text-emerald-700">৳ ${Number(r.budgetMax || 0).toLocaleString('en-US')} / মাস</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-bold">রুম স্পেক্স</span>
+                  <span class="font-bold text-slate-700">${r.bedrooms || 1} Bed • ${r.bathrooms || 1} Bath (${r.tenantType || 'Family'})</span>
+                </div>
+                <div>
+                  <span class="text-[10px] text-slate-400 block font-bold">কবে প্রয়োজন</span>
+                  <span class="font-bold text-amber-800">${r.desiredMoveDate || 'চলতি মাস'}</span>
+                </div>
+              </div>
+
+              ${r.specialRequirements ? `
+                <div class="mt-2 text-[11px] text-slate-600 bg-amber-50/50 p-2 rounded-lg border border-amber-100">
+                  <strong>চাহিদা:</strong> "${r.specialRequirements}"
+                </div>
+              ` : ''}
+
+              <!-- Admin Notes & Agent Assignment -->
+              <div class="mt-3 space-y-1.5 text-xs">
+                <div class="flex gap-2">
+                  <input type="text" id="agentInput-${id}" value="${r.assignedAgent || ''}" placeholder="ফিল্ড এজেন্টের নাম/নম্বর" class="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs focus:ring-1 focus:ring-emerald-500">
+                  <input type="text" id="trxInput-${id}" value="${r.paymentTrxId || ''}" placeholder="বিকাশ TrxID" class="w-28 px-2 py-1.5 rounded-lg border border-slate-200 text-xs font-mono">
+                  <button onclick="saveHunterNotes('${id}')" class="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold text-xs" title="সেভ করুন">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Status Controls -->
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+              <div class="flex items-center gap-1.5 flex-1">
+                <span class="text-[11px] font-bold text-slate-500 whitespace-nowrap">স্ট্যাটাস:</span>
+                <select onchange="updateHouseHunterStatus('${id}', this.value)" class="flex-1 px-2 py-1 rounded-lg border border-slate-200 bg-white font-bold text-xs text-slate-800 focus:ring-1 focus:ring-emerald-500">
+                  <option value="PENDING" ${curStatus === 'PENDING' ? 'selected' : ''}>নতুন (Pending)</option>
+                  <option value="CONTACTED" ${curStatus === 'CONTACTED' ? 'selected' : ''}>কথা হয়েছে (Contacted)</option>
+                  <option value="PAID_ACTIVE" ${curStatus === 'PAID_ACTIVE' ? 'selected' : ''}>১০০০৳ পেইড (Active)</option>
+                  <option value="HOUSES_SHOWN" ${curStatus === 'HOUSES_SHOWN' ? 'selected' : ''}>বাসা দেখানো হয়েছে</option>
+                  <option value="COMPLETED" ${curStatus === 'COMPLETED' ? 'selected' : ''}>বাসা কনফার্ম (Completed)</option>
+                  <option value="REFUNDED" ${curStatus === 'REFUNDED' ? 'selected' : ''}>রিফান্ড করা হয়েছে</option>
+                  <option value="CANCELLED" ${curStatus === 'CANCELLED' ? 'selected' : ''}>বাতিল (Cancelled)</option>
+                </select>
+              </div>
+              <button onclick="deleteHouseHunterRequest('${id}', '${r.name || r.phone}')" class="p-1.5 px-2.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs" title="ডিলেট">
+                <i class="fa-solid fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function updateHouseHunterStatus(id, newStatus) {
+      try {
+        await apiCall(`/house-hunter/${id}`, 'PATCH', { status: newStatus });
+        showStatusPopup({
+          title: 'স্ট্যাটাস আপডেট হয়েছে! ✅',
+          message: 'হোম হান্টার রিকোয়েস্টের স্ট্যাটাস সফলভাবে পরিবর্তন করা হয়েছে।',
+          type: 'success'
+        });
+        fetchHouseHunterRequests();
+      } catch (err) {
+        showStatusPopup({ title: 'আপডেট ব্যর্থ', message: err.message, type: 'error' });
+      }
+    }
+
+    async function saveHunterNotes(id) {
+      const assignedAgent = document.getElementById(`agentInput-${id}`)?.value?.trim() || '';
+      const paymentTrxId = document.getElementById(`trxInput-${id}`)?.value?.trim() || '';
+      try {
+        await apiCall(`/house-hunter/${id}`, 'PATCH', { assignedAgent, paymentTrxId });
+        showToast('এজেন্ট ও পেমেন্ট তথ্য সংরক্ষিত হয়েছে!');
+      } catch (err) {
+        showStatusPopup({ title: 'সংরক্ষণ ব্যর্থ', message: err.message, type: 'error' });
+      }
+    }
+
+    async function deleteHouseHunterRequest(id, name) {
+      const confirmed = await showConfirmDialog({
+        title: 'অনুরোধ মুছে ফেলা নিশ্চিতকরণ',
+        message: `আপনি কি নিশ্চিত যে ক্লায়েন্ট <strong>'${name}'</strong> এর রিকোয়েস্টটি স্থায়ীভাবে মুছে ফেলতে চান?`,
+        icon: 'fa-trash-can',
+        iconBg: 'bg-rose-100 text-rose-700',
+        confirmBtnText: 'হ্যাঁ, ডিলেট করুন',
+        confirmBtnClass: 'bg-rose-600 hover:bg-rose-700 text-white'
+      });
+      if (!confirmed) return;
+
+      try {
+        await apiCall(`/house-hunter/${id}`, 'DELETE');
+        showStatusPopup({
+          title: 'রিকোয়েস্ট মুছে ফেলা হয়েছে! 🗑️',
+          message: 'হোম হান্টার রিকোয়েস্টটি সফলভাবে মুছে ফেলা হয়েছে।',
+          type: 'success'
+        });
+        fetchHouseHunterRequests();
+      } catch (err) {
+        showStatusPopup({ title: 'ডিলেট ব্যর্থ', message: err.message, type: 'error' });
+      }
+    }
+
+    function prevHunterPage() {
+      if (hunterPage > 1) {
+        hunterPage--;
+        fetchHouseHunterRequests();
+      }
+    }
+
+    function nextHunterPage() {
+      hunterPage++;
+      fetchHouseHunterRequests();
     }
 
     // ─────────────────────────────────────────────────────────────

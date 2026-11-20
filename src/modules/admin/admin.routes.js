@@ -60,6 +60,11 @@ router.post('/api/upload', uploadMultipleImages, (req, res) => {
 router.get('/api/reports', adminController.getReports.bind(adminController));
 router.post('/api/reports/:id/resolve', adminController.resolveReport.bind(adminController));
 
+// House Hunter Requests Management
+router.get('/api/house-hunter', adminController.getHouseHunterRequests.bind(adminController));
+router.patch('/api/house-hunter/:id', adminController.updateHouseHunterRequest.bind(adminController));
+router.delete('/api/house-hunter/:id', adminController.deleteHouseHunterRequest.bind(adminController));
+
 // Push Notifications Broadcast & Logs
 router.get('/api/notifications/audience-count', adminController.getAudienceCount.bind(adminController));
 router.post('/api/notifications/send-push', adminController.sendPushNotification.bind(adminController));

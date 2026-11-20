@@ -1,6 +1,7 @@
 const path = require('path');
 const adminService = require('./admin.service');
 const propertyService = require('../property/property.service');
+const houseHunterService = require('../houseHunter/houseHunter.service');
 const ApiResponse = require('../../utils/apiResponse');
 
 class AdminController {
@@ -486,6 +487,60 @@ class AdminController {
         statusCode: 200,
         message: 'Locations loaded',
         data: locations,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: House Hunter - Get All Requests
+   * GET /admin/api/house-hunter
+   */
+  async getHouseHunterRequests(req, res, next) {
+    try {
+      const { page, limit, status, search } = req.query;
+      const result = await houseHunterService.getAllRequestsAdmin({ page, limit, status, search });
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'House Hunter requests loaded',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: House Hunter - Update Request Status/Notes
+   * PATCH /admin/api/house-hunter/:id
+   */
+  async updateHouseHunterRequest(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await houseHunterService.updateRequestAdmin(id, req.body);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'Request updated successfully',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: House Hunter - Delete Request
+   * DELETE /admin/api/house-hunter/:id
+   */
+  async deleteHouseHunterRequest(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await houseHunterService.deleteRequestAdmin(id);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
       });
     } catch (error) {
       next(error);

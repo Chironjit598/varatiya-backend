@@ -13,6 +13,7 @@ const alertRoutes = require('./modules/alert/alert.routes');
 const notificationRoutes = require('./modules/notification/notification.routes');
 const uploadRoutes = require('./modules/upload/upload.routes');
 const paymentRoutes = require('./modules/payment/payment.routes');
+const houseHunterRoutes = require('./modules/houseHunter/houseHunter.routes');
 const adminRoutes = require('./modules/admin/admin.routes');
 const { notFoundHandler, errorHandler } = require('./middlewares/error.middleware');
 const { generalRateLimiter } = require('./middlewares/rateLimiter');
@@ -116,6 +117,7 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/house-hunter', houseHunterRoutes);
 
 // Catch 404 and forward to error handler
 app.use(notFoundHandler);
