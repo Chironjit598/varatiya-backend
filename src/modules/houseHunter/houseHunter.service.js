@@ -12,11 +12,30 @@ class HouseHunterService {
       throw err;
     }
 
+    // Format target areas (support both array and legacy single string)
+    let targetAreas = [];
+    if (Array.isArray(data.targetAreas) && data.targetAreas.length > 0) {
+      targetAreas = data.targetAreas.map((a) => String(a).trim()).filter(Boolean);
+    } else if (data.targetArea || data.area) {
+      targetAreas = [String(data.targetArea || data.area).trim()];
+    }
+
+    let targetSubAreas = [];
+    if (Array.isArray(data.targetSubAreas) && data.targetSubAreas.length > 0) {
+      targetSubAreas = data.targetSubAreas.map((s) => String(s).trim()).filter(Boolean);
+    } else if (data.targetSubArea || data.subArea) {
+      targetSubAreas = [String(data.targetSubArea || data.subArea).trim()];
+    }
+
     const payload = {
       name: (data.name || 'ব্যবহারকারী').trim(),
       phone: cleanPhone,
-      targetArea: (data.targetArea || data.area || 'ঢাকা').trim(),
-      targetSubArea: (data.targetSubArea || data.subArea || '').trim(),
+      targetArea: targetAreas.length > 0 ? targetAreas.join(', ') : 'ঢাকা',
+      targetAreas,
+      targetSubArea: targetSubAreas.length > 0 ? targetSubAreas.join(', ') : '',
+      targetSubAreas,
+      customLocationNote: (data.customLocationNote || data.detailedAddress || '').trim(),
+      occupantsCount: Math.max(1, parseInt(data.occupantsCount, 10) || 1),
       budgetMin: Number(data.budgetMin) || 0,
       budgetMax: Number(data.budgetMax) || 15000,
       tenantType: data.tenantType || 'Family',
@@ -75,6 +94,7 @@ class HouseHunterService {
         { phone: { $regex: term, $options: 'i' } },
         { targetArea: { $regex: term, $options: 'i' } },
         { targetSubArea: { $regex: term, $options: 'i' } },
+        { customLocationNote: { $regex: term, $options: 'i' } },
         { assignedAgent: { $regex: term, $options: 'i' } },
       ];
       query.$and = query.$and || [];
@@ -158,3 +178,4 @@ class HouseHunterService {
 }
 
 module.exports = new HouseHunterService();
+

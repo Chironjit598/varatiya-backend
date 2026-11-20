@@ -14,13 +14,31 @@ const houseHunterRequestSchema = new mongoose.Schema(
     },
     targetArea: {
       type: String,
-      required: [true, 'কাঙ্ক্ষিত এলাকা উল্লেখ করুন'],
       trim: true,
+      default: '',
+    },
+    targetAreas: {
+      type: [String],
+      default: [],
     },
     targetSubArea: {
       type: String,
       trim: true,
       default: '',
+    },
+    targetSubAreas: {
+      type: [String],
+      default: [],
+    },
+    customLocationNote: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    occupantsCount: {
+      type: Number,
+      default: 1,
+      min: [1, 'কমপক্ষে ১ জন সদস্য হতে হবে'],
     },
     budgetMin: {
       type: Number,
@@ -104,3 +122,4 @@ houseHunterRequestSchema.index({ phone: 1, createdAt: -1 });
 houseHunterRequestSchema.index({ status: 1, createdAt: -1 });
 
 module.exports = mongoose.model('HouseHunterRequest', houseHunterRequestSchema);
+

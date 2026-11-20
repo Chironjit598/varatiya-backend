@@ -100,3 +100,4 @@ class HouseHunterController {
 }
 
 module.exports = new HouseHunterController();
+

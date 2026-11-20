@@ -4181,11 +4181,13 @@
               <div class="grid grid-cols-2 gap-2 mt-3 p-2.5 bg-slate-50/80 rounded-xl border border-slate-100 text-xs">
                 <div>
                   <span class="text-[10px] text-slate-400 block font-bold">কাঙ্ক্ষিত এলাকা</span>
-                  <span class="font-bold text-slate-800">${r.targetArea}${r.targetSubArea ? ' • ' + r.targetSubArea : ''}</span>
+                  <span class="font-bold text-slate-800">${(r.targetAreas && r.targetAreas.length) ? r.targetAreas.join(', ') : (r.targetArea || 'ঢাকা')}</span>
+                  ${(r.targetSubAreas && r.targetSubAreas.length) ? `<span class="text-[11px] text-emerald-800 block mt-0.5 font-medium">সাব-এলাকা: ${r.targetSubAreas.join(', ')}</span>` : (r.targetSubArea ? `<span class="text-[11px] text-slate-600 block mt-0.5 font-medium">${r.targetSubArea}</span>` : '')}
                 </div>
                 <div>
-                  <span class="text-[10px] text-slate-400 block font-bold">সর্বোচ্চ বাজেট</span>
+                  <span class="text-[10px] text-slate-400 block font-bold">সর্বোচ্চ বাজেট ও সদস্য</span>
                   <span class="font-black text-emerald-700">৳ ${Number(r.budgetMax || 0).toLocaleString('en-US')} / মাস</span>
+                  <span class="text-[11px] text-slate-600 block mt-0.5 font-medium">সদস্য: <strong>${r.occupantsCount || 1} জন</strong></span>
                 </div>
                 <div>
                   <span class="text-[10px] text-slate-400 block font-bold">রুম স্পেক্স</span>
@@ -4196,6 +4198,12 @@
                   <span class="font-bold text-amber-800">${r.desiredMoveDate || 'চলতি মাস'}</span>
                 </div>
               </div>
+
+              ${r.customLocationNote ? `
+                <div class="mt-2 text-[11px] text-slate-700 bg-slate-100/80 p-2 rounded-lg border border-slate-200">
+                  <i class="fa-solid fa-location-dot text-rose-500 mr-1"></i><strong>ল্যান্ডমার্ক/ঠিকানা:</strong> ${r.customLocationNote}
+                </div>
+              ` : ''}
 
               ${r.specialRequirements ? `
                 <div class="mt-2 text-[11px] text-slate-600 bg-amber-50/50 p-2 rounded-lg border border-amber-100">
