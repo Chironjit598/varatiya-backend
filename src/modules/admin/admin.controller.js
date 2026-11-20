@@ -179,6 +179,24 @@ class AdminController {
   }
 
   /**
+   * API: Property Management - Update Property
+   * PUT /admin/api/properties/:id
+   */
+  async updateProperty(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await adminService.updateProperty(id, req.body);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বিজ্ঞাপন সফলভাবে আপডেট করা হয়েছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * API: Property Management - Delete Property
    * DELETE /admin/api/properties/:id
    */

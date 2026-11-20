@@ -1393,6 +1393,10 @@
           <span>হাইড করুন</span>
         </button>
         <div class="flex gap-2">
+          <button onclick="openEditFromDetailsModal()" class="px-3.5 py-2 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-xs transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-pen-to-square"></i>
+            <span>এডিট করুন</span>
+          </button>
           <button id="propModalDeleteBtn" onclick="deletePropFromModal()" class="px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 font-bold text-xs transition-all flex items-center gap-1.5">
             <i class="fa-solid fa-trash"></i>
             <span>ডিলেট</span>
@@ -1402,6 +1406,326 @@
           </button>
         </div>
       </div>
+
+    </div>
+  </div>
+
+  <!-- 6. PROPERTY EDIT MODAL -->
+  <div id="editPropertyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-4 hidden">
+    <div class="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col border border-slate-100 animate-in fade-in zoom-in duration-200 overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-blue-50 via-indigo-50 to-white">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center text-lg shadow-md shadow-blue-200">
+            <i class="fa-solid fa-pen-to-square"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base sm:text-lg font-black text-slate-800">বিজ্ঞাপন এডিট করুন</h3>
+              <span id="editPropCodeDisplay" class="px-2 py-0.5 rounded-md text-xs font-mono font-extrabold bg-blue-100 text-blue-800 border border-blue-200">#CODE</span>
+            </div>
+            <p class="text-xs text-slate-500">বিজ্ঞাপনের যেকোনো তথ্য পরিবর্তন বা সংশোধন করে অ্যাপে আপডেট করুন</p>
+          </div>
+        </div>
+        <button onclick="closeEditPropertyModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body (Form) -->
+      <form id="editPropertyForm" onsubmit="submitEditProperty(event)" class="p-4 sm:p-6 overflow-y-auto space-y-5 flex-1 text-xs">
+        <input type="hidden" id="editPropId">
+        
+        <!-- SECTION 1: মূল বিবরণ (Basic Info) -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-circle-info text-blue-600"></i>
+            <span>১. মূল বিবরণ (Basic Info)</span>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">বিজ্ঞাপনের শিরোনাম <span class="text-rose-500">*</span></label>
+            <input type="text" id="editPropTitle" required placeholder="বিজ্ঞাপনের শিরোনাম" 
+              class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ভাড়ার ধরন (Rent Type) <span class="text-rose-500">*</span></label>
+              <select id="editPropRentType" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                <option value="entire_house">সম্পূর্ণ বাড়ি / ফ্ল্যাট (Entire House)</option>
+                <option value="single_room">একক রুম / সিট (Single Room)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ক্যাটাগরি (বাসা / মেস) <span class="text-rose-500">*</span></label>
+              <select id="editPropIsMess" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                <option value="false">সাধারণ বাসা / ফ্ল্যাট</option>
+                <option value="true">হোস্টেল / মেস (Mess)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">কাদের জন্য প্রযোজ্য <span class="text-rose-500">*</span></label>
+              <select id="editPropTenantType" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                <option value="Family">পরিবার (Family)</option>
+                <option value="Bachelor (Male)">ছাত্র / ব্যাচেলর ছেলে (Bachelor Male)</option>
+                <option value="Bachelor (Female)">ছাত্রী / চাকুরিজীবী মেয়ে (Bachelor Female)</option>
+                <option value="Any">যে কেউ (Any)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">কোন মাস থেকে ভাড়া হবে <span class="text-rose-500">*</span></label>
+              <input type="text" id="editPropAvailableMonth" required placeholder="যেমন: ১লা ডিসেম্বর বা জানুয়ারি থেকে" 
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 2: এলাকা ও অবস্থান -->
+        <div class="space-y-3 bg-blue-50/40 p-4 rounded-2xl border border-blue-200/60">
+          <div class="flex items-center gap-2 pb-1 border-b border-blue-200/80 font-bold text-blue-900">
+            <i class="fa-solid fa-location-dot text-blue-600"></i>
+            <span>২. অবস্থান ও এলাকা নির্বাচন (Location)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">মূল এলাকা (Area) <span class="text-rose-500">*</span></label>
+              <select id="editPropAreaSelect" onchange="onEditAreaChange()" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800">
+                <option value="">-- এলাকা নির্বাচন করুন --</option>
+              </select>
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">সাব-এলাকা / সেক্টর / রোড (Sub-Area) <span class="text-rose-500">*</span></label>
+              <select id="editPropSubAreaSelect" required class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800">
+                <option value="">-- সাব-এলাকা নির্বাচন করুন --</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বিল্ডিং / বাড়ির নাম (যদি থাকে)</label>
+              <input type="text" id="editPropBuildingName" placeholder="যেমন: স্বপ্নিল টাওয়ার" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ফ্লোর / তলা (Floor Level)</label>
+              <input type="text" id="editPropFloorLevel" placeholder="যেমন: ৪র্থ তলা" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">গুগল ম্যাপ লিংক (Map Link)</label>
+              <input type="url" id="editPropGoogleMap" placeholder="https://maps.google.com/..." 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">সম্পূর্ণ বিস্তারিত ঠিকানা <span class="text-rose-500">*</span></label>
+            <input type="text" id="editPropDetailedAddress" required placeholder="যেমন: বাড়ি নং ১২, রোড নং ৪, ব্লক সি" 
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+          </div>
+        </div>
+
+        <!-- SECTION 3: রুম ও সাইজ স্পেক্স -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-bed text-indigo-600"></i>
+            <span>৩. রুম ও ফ্লাট স্পেসিফিকেশন (Rooms Specs)</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বেডরুম সংখ্যা</label>
+              <input type="number" id="editPropBedrooms" value="1" min="0" max="20" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-center font-bold">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বাথরুম সংখ্যা</label>
+              <input type="number" id="editPropBathrooms" value="1" min="0" max="10" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-center font-bold">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বারান্দা সংখ্যা</label>
+              <input type="number" id="editPropBalconies" value="0" min="0" max="10" class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-center font-bold">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 4: ভাড়া ও পেমেন্ট -->
+        <div class="space-y-3 bg-amber-50/40 p-4 rounded-2xl border border-amber-200/60">
+          <div class="flex items-center gap-2 pb-1 border-b border-amber-200/80 font-bold text-amber-900">
+            <i class="fa-solid fa-bangladeshi-taka-sign text-amber-600"></i>
+            <span>৪. ভাড়া ও পেমেন্ট (Rent & Pricing)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">মাসিক ভাড়া (টাকা ৳) <span class="text-rose-500">*</span></label>
+              <input type="number" id="editPropRentPrice" value="0" min="0" placeholder="টাকার পরিমাণ" 
+                class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800 text-sm">
+            </div>
+            <div class="pt-2 sm:pt-5">
+              <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700 bg-white p-2.5 rounded-xl border border-amber-200">
+                <input type="checkbox" id="editPropIsNegotiable" onchange="toggleEditPropPriceNegotiable()" class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4">
+                <span>ভাড়া আলোচনা সাপেক্ষে (Negotiable)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 5: বাড়িওয়ালা / যোগাযোগের তথ্য -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-address-book text-emerald-600"></i>
+            <span>৫. বাড়িওয়ালা / যোগাযোগের তথ্য (Contact Info)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">বাড়িওয়ালার নাম <span class="text-rose-500">*</span></label>
+              <input type="text" id="editPropLandlordName" required placeholder="যেমন: বাড়িওয়ালা" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">যোগাযোগের মোবাইল নম্বর <span class="text-rose-500">*</span></label>
+              <input type="tel" id="editPropLandlordPhone" required placeholder="যেমন: 01712345678" 
+                class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold">
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 6: সুযোগ-সুবিধা ও বিবরণ -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-list-check text-purple-600"></i>
+            <span>৬. সুযোগ-সুবিধা ও বিবরণ (Amenities & Description)</span>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1.5">সুযোগ-সুবিধা সমূহ:</label>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_Gas" value="গ্যাস সংযোগ" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>গ্যাস (Gas)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_Lift" value="লিফট" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>লিফট (Lift)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_Generator" value="জেনারেটর" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>জেনারেটর</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_WiFi" value="ওয়াইফাই" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>ওয়াইফাই (WiFi)</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_CCTV" value="সিসিটিভি" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>সিসিটিভি</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_Parking" value="কার পার্কিং" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>পার্কিং</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_Security" value="২৪/৭ দারোয়ান" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>নিরাপত্তা গার্ড</span>
+              </label>
+              <label class="flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 font-medium">
+                <input type="checkbox" id="editAmenity_Metro" value="মেট্রোরেল নিকটে" class="rounded text-blue-600 w-3.5 h-3.5">
+                <span>মেট্রোরেল নিকটে</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">বাসার বিস্তারিত বিবরণ (Description)</label>
+            <textarea id="editPropDescription" rows="3" placeholder="বাসার বিস্তারিত পরিবেশ বা বিবরণ লিখুন..." 
+              class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"></textarea>
+          </div>
+        </div>
+
+        <!-- SECTION 7: ছবি ব্যবস্থাপনা (Images Management) -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-images text-indigo-600"></i>
+            <span>৭. ছবি ব্যবস্থাপনা (Images)</span>
+          </div>
+
+          <!-- Existing Images Preview -->
+          <div id="editPropExistingImagesSection" class="space-y-1.5 hidden">
+            <label class="block font-bold text-slate-700">বর্তমান সংযুক্ত ছবিসমূহ (ক্রস বাটনে ক্লিক করে বাদ দিতে পারেন):</label>
+            <div id="editPropExistingImagesGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2"></div>
+          </div>
+
+          <!-- New Image Upload Picker -->
+          <div class="space-y-2 pt-2 border-t border-slate-200/60">
+            <div class="flex justify-between items-center">
+              <label class="block font-bold text-slate-700">
+                <i class="fa-solid fa-cloud-arrow-up text-blue-600 mr-1"></i>
+                <span>নতুন ছবি যোগ করুন <span class="text-slate-400 font-normal">(ঐচ্ছিক)</span></span>
+              </label>
+              <button type="button" onclick="document.getElementById('editPropImageFiles').click()" class="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1">
+                <i class="fa-solid fa-plus"></i>
+                <span>ফাইল নির্বাচন</span>
+              </button>
+            </div>
+
+            <div onclick="document.getElementById('editPropImageFiles').click()" 
+              class="border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/30 hover:bg-blue-50/60 rounded-2xl p-4 text-center cursor-pointer transition-all">
+              <input type="file" id="editPropImageFiles" multiple accept="image/jpeg,image/png,image/webp,image/jpg" class="hidden" onchange="handleEditImageSelection(event)">
+              <div class="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center mx-auto mb-1.5 text-base">
+                <i class="fa-solid fa-camera"></i>
+              </div>
+              <p class="text-xs font-bold text-slate-700">নতুন ছবি যোগ করতে ক্লিক করুন</p>
+            </div>
+
+            <div id="editPropImagePreviewGrid" class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-2 pt-1 hidden"></div>
+
+            <details class="text-[11px] text-slate-500 pt-1">
+              <summary class="cursor-pointer font-bold text-slate-600 hover:text-blue-600 select-none">
+                + অথবা সরাসরি নতুন ছবির ওয়েব লিংক (URL) লিখুন
+              </summary>
+              <div class="mt-2">
+                <textarea id="editPropImageUrls" rows="2" placeholder="https://example.com/photo1.jpg&#10;https://example.com/photo2.jpg" 
+                  class="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- SECTION 8: স্ট্যাটাস -->
+        <div class="space-y-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-200/70">
+          <div class="flex items-center gap-2 pb-1 border-b border-slate-200 font-bold text-slate-700">
+            <i class="fa-solid fa-toggle-on text-slate-600"></i>
+            <span>৮. বিজ্ঞাপনের স্ট্যাটাস (Status)</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">ভিউ স্ট্যাটাস</label>
+              <select id="editPropIsActive" class="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold">
+                <option value="true">● সক্রিয় (Live - অ্যাপে দৃশ্যমান)</option>
+                <option value="false">○ হাইড (Hidden - অ্যাপে লুকানো)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Form Submit & Cancel Buttons -->
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+          <button type="button" onclick="closeEditPropertyModal()" class="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-bold transition-all">
+            বাতিল
+          </button>
+          <button type="submit" id="btnSubmitEditProp" class="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-md shadow-blue-200 flex items-center gap-2">
+            <i class="fa-solid fa-check"></i>
+            <span>পরিবর্তন সংরক্ষণ করুন (Save Updates)</span>
+          </button>
+        </div>
+
+      </form>
 
     </div>
   </div>
@@ -3103,6 +3427,9 @@
                   <i class="fa-solid ${isActive ? 'fa-eye-slash' : 'fa-eye'} mr-1"></i>
                   ${isActive ? 'হাইড করুন' : 'আনহাইড করুন'}
                 </button>
+                <button onclick="openEditPropertyModal('${propId}')" class="p-1.5 px-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-all text-xs font-bold" title="বিজ্ঞাপন এডিট করুন">
+                  <i class="fa-solid fa-pen-to-square mr-1"></i>এডিট
+                </button>
                 <button onclick="deleteProperty('${propId}', '${p.propertyCode || p.title}')" class="p-1.5 px-2.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all text-xs" title="ডিলেট করুন">
                   <i class="fa-solid fa-trash"></i>
                 </button>
@@ -3302,6 +3629,318 @@
       const title = activePropInModal.propertyCode || activePropInModal.title;
       closePropertyDetailsModal();
       await deleteProperty(id, title);
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // EDIT PROPERTY LOGIC
+    // ─────────────────────────────────────────────────────────────
+    let existingPropertyImages = [];
+    let selectedEditPropertyImages = [];
+
+    function openEditFromDetailsModal() {
+      if (!activePropInModal) return;
+      const propId = activePropInModal._id || activePropInModal.id;
+      closePropertyDetailsModal();
+      openEditPropertyModal(propId);
+    }
+
+    async function openEditPropertyModal(id) {
+      let prop = currentPropsList.find(x => (x._id || x.id) == id);
+      if (!prop) {
+        try {
+          const res = await apiCall(`/properties/${id}`);
+          prop = res.property || res;
+        } catch (e) {
+          console.error("Could not fetch full property:", e);
+        }
+      }
+      if (!prop) {
+        showStatusPopup({ title: 'বিজ্ঞাপন পাওয়া যায়নি', message: 'বিজ্ঞাপনের তথ্য লোড করা যায়নি।', type: 'error' });
+        return;
+      }
+
+      document.getElementById('editPropId').value = prop._id || prop.id;
+      document.getElementById('editPropCodeDisplay').textContent = '#' + (prop.propertyCode || 'N/A');
+      document.getElementById('editPropTitle').value = prop.title || '';
+      document.getElementById('editPropRentType').value = prop.rentType || 'single_room';
+      document.getElementById('editPropIsMess').value = (prop.isMess === true || prop.isMess === 'true') ? 'true' : 'false';
+      
+      const tenantArr = Array.isArray(prop.tenantTypes) && prop.tenantTypes.length ? prop.tenantTypes[0] : (prop.tenantType || 'Family');
+      document.getElementById('editPropTenantType').value = tenantArr;
+
+      document.getElementById('editPropAvailableMonth').value = prop.availableMonth || 'চলতি মাস থেকে';
+
+      // Area & SubArea
+      const areaSelect = document.getElementById('editPropAreaSelect');
+      if (Object.keys(bangladeshLocations).length > 0) {
+        const areas = Object.keys(bangladeshLocations).sort();
+        areaSelect.innerHTML = '<option value="">-- এলাকা নির্বাচন করুন --</option>' + 
+          areas.map(a => `<option value="${a}">${a}</option>`).join('');
+      }
+      const propArea = prop.area || 'Mohakhali';
+      areaSelect.value = propArea;
+      onEditAreaChange(prop.subArea || '');
+
+      document.getElementById('editPropBuildingName').value = prop.buildingName || '';
+      document.getElementById('editPropFloorLevel').value = prop.floorLevel || '';
+      document.getElementById('editPropDetailedAddress').value = prop.detailedAddress || prop.address || '';
+      document.getElementById('editPropGoogleMap').value = prop.googleMapLocation || '';
+
+      document.getElementById('editPropBedrooms').value = prop.bedrooms !== undefined ? prop.bedrooms : 1;
+      document.getElementById('editPropBathrooms').value = prop.bathrooms !== undefined ? prop.bathrooms : 1;
+      document.getElementById('editPropBalconies').value = prop.balconies !== undefined ? prop.balconies : 0;
+
+      const isNeg = Boolean(prop.isNegotiable) || Number(prop.rentPrice) === 0;
+      document.getElementById('editPropIsNegotiable').checked = isNeg;
+      document.getElementById('editPropRentPrice').value = prop.rentPrice || 0;
+      toggleEditPropPriceNegotiable();
+
+      document.getElementById('editPropLandlordName').value = prop.landlordName || 'বাড়িওয়ালা';
+      document.getElementById('editPropLandlordPhone').value = prop.contactPhone || prop.landlordPhone || '';
+
+      document.getElementById('editPropDescription').value = prop.description || '';
+      document.getElementById('editPropIsActive').value = prop.isActive !== false ? 'true' : 'false';
+
+      // Amenities
+      const propAmenities = Array.isArray(prop.amenities) ? prop.amenities.map(a => String(a).toLowerCase().trim()) : [];
+      const checkAmenity = (elId, keywords) => {
+        const el = document.getElementById(elId);
+        if (!el) return;
+        el.checked = keywords.some(k => propAmenities.some(pa => pa.includes(k.toLowerCase())));
+      };
+      checkAmenity('editAmenity_Gas', ['gas', 'গ্যাস']);
+      checkAmenity('editAmenity_Lift', ['lift', 'লিফট']);
+      checkAmenity('editAmenity_Generator', ['generator', 'জেনারেটর']);
+      checkAmenity('editAmenity_WiFi', ['wifi', 'ওয়াইফাই', 'ওয়াই-ফাই']);
+      checkAmenity('editAmenity_CCTV', ['cctv', 'সিসিটিভি']);
+      checkAmenity('editAmenity_Parking', ['parking', 'পার্কিং']);
+      checkAmenity('editAmenity_Security', ['security', 'দারোয়ান', 'গার্ড']);
+      checkAmenity('editAmenity_Metro', ['metro', 'মেট্রো']);
+
+      // Images
+      const rawImgs = Array.isArray(prop.imageUrls) && prop.imageUrls.length 
+        ? prop.imageUrls 
+        : (Array.isArray(prop.images) ? prop.images : []);
+      existingPropertyImages = [...rawImgs];
+      renderExistingImagesGrid();
+
+      selectedEditPropertyImages = [];
+      renderEditImagePreviews();
+      document.getElementById('editPropImageUrls').value = '';
+
+      document.getElementById('editPropertyModal').classList.remove('hidden');
+    }
+
+    function closeEditPropertyModal() {
+      document.getElementById('editPropertyModal').classList.add('hidden');
+      selectedEditPropertyImages = [];
+      existingPropertyImages = [];
+    }
+
+    function onEditAreaChange(targetSubArea = null) {
+      const areaSelect = document.getElementById('editPropAreaSelect');
+      const subAreaSelect = document.getElementById('editPropSubAreaSelect');
+      if (!areaSelect || !subAreaSelect) return;
+
+      const selectedArea = areaSelect.value;
+      if (!selectedArea || !bangladeshLocations[selectedArea]) {
+        subAreaSelect.innerHTML = '<option value="">-- প্রথমে এলাকা নির্বাচন করুন --</option>';
+        return;
+      }
+
+      const subAreas = bangladeshLocations[selectedArea] || [];
+      let html = '<option value="">-- সাব-এলাকা নির্বাচন করুন --</option>' + 
+        subAreas.map(sa => `<option value="${sa}">${sa}</option>`).join('');
+
+      if (targetSubArea && !subAreas.includes(targetSubArea)) {
+        html += `<option value="${targetSubArea}">${targetSubArea}</option>`;
+      }
+
+      subAreaSelect.innerHTML = html;
+      if (targetSubArea) {
+        subAreaSelect.value = targetSubArea;
+      }
+    }
+
+    function toggleEditPropPriceNegotiable() {
+      const isNeg = document.getElementById('editPropIsNegotiable').checked;
+      const priceInput = document.getElementById('editPropRentPrice');
+      if (isNeg) {
+        priceInput.classList.add('opacity-50');
+      } else {
+        priceInput.classList.remove('opacity-50');
+      }
+    }
+
+    function renderExistingImagesGrid() {
+      const sec = document.getElementById('editPropExistingImagesSection');
+      const grid = document.getElementById('editPropExistingImagesGrid');
+      if (!sec || !grid) return;
+      if (!existingPropertyImages.length) {
+        sec.classList.add('hidden');
+        grid.innerHTML = '';
+        return;
+      }
+      sec.classList.remove('hidden');
+      grid.innerHTML = existingPropertyImages.map((img, idx) => `
+        <div class="relative rounded-xl overflow-hidden border border-slate-200 aspect-video group bg-slate-100">
+          <img src="${img}" alt="Property image" class="w-full h-full object-cover">
+          <button type="button" onclick="removeExistingImage(${idx})" class="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center text-xs shadow-md transition-all" title="ছবি বাদ দিন">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function removeExistingImage(index) {
+      existingPropertyImages.splice(index, 1);
+      renderExistingImagesGrid();
+    }
+
+    function handleEditImageSelection(event) {
+      const files = Array.from(event.target.files || []);
+      if (!files.length) return;
+      const validFiles = files.filter(f => f.type.startsWith('image/'));
+      selectedEditPropertyImages = [...selectedEditPropertyImages, ...validFiles];
+      renderEditImagePreviews();
+      event.target.value = '';
+    }
+
+    function removeSelectedEditImage(index) {
+      selectedEditPropertyImages.splice(index, 1);
+      renderEditImagePreviews();
+    }
+
+    function renderEditImagePreviews() {
+      const grid = document.getElementById('editPropImagePreviewGrid');
+      if (!grid) return;
+      if (selectedEditPropertyImages.length === 0) {
+        grid.classList.add('hidden');
+        grid.innerHTML = '';
+        return;
+      }
+      grid.classList.remove('hidden');
+      grid.innerHTML = selectedEditPropertyImages.map((file, idx) => {
+        const url = URL.createObjectURL(file);
+        return `
+          <div class="relative rounded-xl overflow-hidden border border-blue-200 aspect-video group bg-blue-50/50">
+            <img src="${url}" alt="Preview" class="w-full h-full object-cover">
+            <button type="button" onclick="removeSelectedEditImage(${idx})" class="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center text-xs shadow-md" title="বাদ দিন">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+            <span class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-600/80 text-white">নতুন</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function submitEditProperty(event) {
+      event.preventDefault();
+      const submitBtn = document.getElementById('btnSubmitEditProp');
+      const originalText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+
+      try {
+        const id = document.getElementById('editPropId').value;
+        if (!id) throw new Error('বিজ্ঞাপন আইডি পাওয়া যায়নি');
+
+        // Upload new image files if any
+        let newlyUploadedUrls = [];
+        if (selectedEditPropertyImages.length > 0) {
+          submitBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up animate-bounce mr-1"></i> নতুন ছবি আপলোড হচ্ছে...';
+          const formData = new FormData();
+          selectedEditPropertyImages.forEach(file => {
+            formData.append('images', file);
+          });
+
+          const uploadRes = await fetch('/admin/api/upload', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${adminToken}`
+            },
+            body: formData
+          });
+          const uploadJson = await uploadRes.json();
+          if (!uploadJson.success) {
+            throw new Error(uploadJson.message || 'নতুন ছবি আপলোড করতে সমস্যা হয়েছে');
+          }
+          newlyUploadedUrls = uploadJson.data?.urls || [];
+        }
+
+        // Manual image URLs
+        const rawManualUrls = document.getElementById('editPropImageUrls').value.trim();
+        const manualUrls = rawManualUrls 
+          ? rawManualUrls.split('\n').map(s => s.trim()).filter(Boolean)
+          : [];
+
+        const finalImageUrls = [...existingPropertyImages, ...newlyUploadedUrls, ...manualUrls];
+
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i> আপডেট সংরক্ষণ হচ্ছে...';
+
+        const amenities = [];
+        ['editAmenity_Gas', 'editAmenity_Lift', 'editAmenity_Generator', 'editAmenity_WiFi', 'editAmenity_CCTV', 'editAmenity_Parking', 'editAmenity_Security', 'editAmenity_Metro'].forEach(aid => {
+          const el = document.getElementById(aid);
+          if (el && el.checked) amenities.push(el.value);
+        });
+
+        const isNeg = document.getElementById('editPropIsNegotiable').checked;
+        const rentPrice = isNeg ? 0 : (Number(document.getElementById('editPropRentPrice').value) || 0);
+        const tenantType = document.getElementById('editPropTenantType').value;
+        const isMess = document.getElementById('editPropIsMess').value === 'true';
+        const isActive = document.getElementById('editPropIsActive').value === 'true';
+
+        const payload = {
+          title: document.getElementById('editPropTitle').value.trim(),
+          rentType: document.getElementById('editPropRentType').value,
+          isMess,
+          tenantType,
+          tenantTypes: [tenantType],
+          availableMonth: document.getElementById('editPropAvailableMonth').value.trim(),
+          area: document.getElementById('editPropAreaSelect').value,
+          subArea: document.getElementById('editPropSubAreaSelect').value,
+          buildingName: document.getElementById('editPropBuildingName').value.trim(),
+          floorLevel: document.getElementById('editPropFloorLevel').value.trim(),
+          detailedAddress: document.getElementById('editPropDetailedAddress').value.trim(),
+          googleMapLocation: document.getElementById('editPropGoogleMap').value.trim(),
+          bedrooms: Number(document.getElementById('editPropBedrooms').value) || 1,
+          bathrooms: Number(document.getElementById('editPropBathrooms').value) || 1,
+          balconies: Number(document.getElementById('editPropBalconies').value) || 0,
+          rentPrice,
+          isNegotiable: isNeg,
+          landlordName: document.getElementById('editPropLandlordName').value.trim(),
+          landlordPhone: document.getElementById('editPropLandlordPhone').value.trim(),
+          contactPhone: document.getElementById('editPropLandlordPhone').value.trim(),
+          description: document.getElementById('editPropDescription').value.trim(),
+          amenities,
+          imageUrls: finalImageUrls,
+          isActive,
+        };
+
+        let res;
+        try {
+          res = await apiCall(`/properties/${id}`, 'PUT', payload);
+        } catch (putErr) {
+          res = await apiCall(`/properties/${id}/edit`, 'POST', payload);
+        }
+
+        closeEditPropertyModal();
+        showStatusPopup({
+          title: 'বিজ্ঞাপন আপডেট হয়েছে! 🎉',
+          message: `বিজ্ঞাপন <strong>#${res.propertyCode || res.id || ''}</strong> সফলভাবে আপডেট করা হয়েছে।`,
+          type: 'success'
+        });
+        fetchProperties();
+        fetchStats();
+      } catch (err) {
+        showStatusPopup({
+          title: 'আপডেট ব্যর্থ হয়েছে',
+          message: err.message,
+          type: 'error'
+        });
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+      }
     }
 
     async function togglePropActive(id) {

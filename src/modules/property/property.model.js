@@ -242,6 +242,11 @@ const propertySchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
+    googleMapLocation: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     isVerified: {
       type: Boolean,
       default: false,

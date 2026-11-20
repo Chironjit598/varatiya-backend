@@ -12,6 +12,7 @@ const AppConfig = require('./appConfig.model');
 const CrmLead = require('./crmLead.model');
 const PushLog = require('./pushLog.model');
 const { sendFcmPushNotification, isFirebaseInitialized } = require('../../config/firebase');
+const locationHelper = require('../../utils/locationHelper');
 
 class AdminService {
   /**
@@ -808,6 +809,102 @@ class AdminService {
       isActive: prop.isActive,
       message: `বিজ্ঞাপন #${prop.propertyCode || prop._id} এখন ${prop.isActive ? 'সক্রিয় (অ্যাপে দৃশ্যমান)' : 'হাইড/লুকানো (অ্যাপে অদৃশ্য)'}`,
     };
+  }
+
+  /**
+   * Update property (Admin full edit)
+   */
+  async updateProperty(propertyId, payload) {
+    const prop = await Property.findById(propertyId);
+    if (!prop) throw new Error('বিজ্ঞাপনটি পাওয়া যায়নি');
+
+    const updatableFields = [
+      'title',
+      'buildingName',
+      'houseNumber',
+      'floorLevel',
+      'bedrooms',
+      'bathrooms',
+      'balconies',
+      'area',
+      'subArea',
+      'goliNumber',
+      'detailedAddress',
+      'rentPrice',
+      'isNegotiable',
+      'tenantType',
+      'tenantTypes',
+      'rentType',
+      'description',
+      'availableMonth',
+      'contactPhone',
+      'landlordName',
+      'landlordPhone',
+      'isMess',
+      'isActive',
+      'googleMapLocation',
+    ];
+
+    updatableFields.forEach((field) => {
+      if (payload[field] !== undefined) {
+        prop[field] = payload[field];
+      }
+    });
+
+    if (payload.amenities !== undefined && Array.isArray(payload.amenities)) {
+      prop.amenities = payload.amenities;
+    }
+
+    if (payload.imageUrls !== undefined && Array.isArray(payload.imageUrls)) {
+      prop.imageUrls = payload.imageUrls;
+      if (prop.images) {
+        prop.images = payload.imageUrls;
+      }
+    }
+
+    // Format displayPrice
+    const price = Number(prop.rentPrice) || 0;
+    const isNeg = Boolean(prop.isNegotiable) || price === 0;
+    if (isNeg) {
+      prop.displayPrice = 'আলোচনা সাপেক্ষে';
+    } else if (prop.isMess) {
+      prop.displayPrice = `৳ ${price.toLocaleString('en-US')} থেকে শুরু`;
+    } else {
+      prop.displayPrice = `৳ ${price.toLocaleString('en-US')} / মাস`;
+    }
+
+    // Clean phone numbers
+    if (prop.contactPhone) {
+      prop.contactPhone = String(prop.contactPhone).replace(/[^\d]/g, '');
+    }
+    if (prop.landlordPhone) {
+      prop.landlordPhone = String(prop.landlordPhone).replace(/[^\d]/g, '');
+    }
+    if (!prop.landlordPhone && prop.contactPhone) {
+      prop.landlordPhone = prop.contactPhone;
+    }
+    if (!prop.contactPhone && prop.landlordPhone) {
+      prop.contactPhone = prop.landlordPhone;
+    }
+
+    // Tenant types sync
+    if (payload.tenantType && (!payload.tenantTypes || !payload.tenantTypes.length)) {
+      prop.tenantTypes = [payload.tenantType];
+    } else if (Array.isArray(prop.tenantTypes) && prop.tenantTypes.length > 0) {
+      prop.tenantType = prop.tenantTypes[0];
+    }
+
+    // Coordinates update if area or subArea changed
+    if (payload.area !== undefined || payload.subArea !== undefined) {
+      const coords = locationHelper.getCoordinatesForArea(prop.area, prop.subArea);
+      prop.location = {
+        type: 'Point',
+        coordinates: coords,
+      };
+    }
+
+    await prop.save();
+    return prop;
   }
 
   /**

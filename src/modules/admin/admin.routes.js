@@ -36,6 +36,8 @@ router.post('/api/crm/lead', adminController.saveCrmLead.bind(adminController));
 // Property / Post Management & Creation
 router.get('/api/properties', adminController.getProperties.bind(adminController));
 router.post('/api/properties', adminController.createProperty.bind(adminController));
+router.put('/api/properties/:id', adminController.updateProperty.bind(adminController));
+router.post('/api/properties/:id/edit', adminController.updateProperty.bind(adminController));
 router.post('/api/properties/:id/toggle-active', adminController.togglePropertyActive.bind(adminController));
 router.delete('/api/properties/:id', adminController.deleteProperty.bind(adminController));
 router.get('/api/locations', adminController.getLocations.bind(adminController));
