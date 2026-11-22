@@ -1,4 +1,5 @@
 const HomeServiceBooking = require('./homeService.model');
+const Notification = require('../notification/notification.model');
 
 class HomeServiceService {
   /**
@@ -17,7 +18,169 @@ class HomeServiceService {
       bookingData.name = user.fullName;
     }
 
+    // প্রাথমিক লাইভ টাইমলাইন
+    bookingData.timeline = [
+      {
+        title: 'অনুরোধ গৃহীত হয়েছে',
+        message: 'আপনার সেবাসমূহের অনুরোধ আমাদের সিস্টেমে সফলভাবে জমা হয়েছে।',
+        time: new Date(),
+        status: 'received',
+      },
+      {
+        title: 'দরদাম ও যাচাই চলছে',
+        message: 'আপনি একটু সক্রিয় (Active) থাকুন! আমাদের টিম আপনার এলাকার বিশ্বস্ত সার্ভিস প্রোভাইডারদের সাথে সাশ্রয়ী রেটে আলোচনা করছে। কিছুক্ষণের মধ্যেই অ্যাপে আপনার মোট খরচ জানিয়ে দেওয়া হবে।',
+        time: new Date(),
+        status: 'negotiating',
+      },
+    ];
+
     const booking = await HomeServiceBooking.create(bookingData);
+
+    // ইন-অ্যাপ নোটিফিকেশন পাঠানো (ইউজার থাকলে)
+    if (booking.user) {
+      try {
+        await Notification.create({
+          userId: booking.user,
+          title: 'সেবা অনুরোধ গ্রহণ করা হয়েছে',
+          body: 'আপনার বাসা বদল ও হোম সার্ভিস অনুরোধটি সফলভাবে গৃহীত হয়েছে। কিছুক্ষণের মধ্যে রেট জানিয়ে দেওয়া হবে।',
+          type: 'HOME_SERVICE',
+          data: {
+            action: 'VIEW_BOOKING',
+            metadata: { bookingId: booking._id },
+          },
+        });
+      } catch (err) {
+        console.error('Failed to create notification for home service booking:', err);
+      }
+    }
+
+    return booking;
+  }
+
+  /**
+   * User responds to price quote: Accept or Counter
+   */
+  async respondToQuote(bookingId, { action, counterPrice, counterNote }) {
+    const booking = await HomeServiceBooking.findById(bookingId);
+    if (!booking) {
+      const err = new Error('বুকিংটি পাওয়া যায়নি');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (action === 'accept') {
+      booking.negotiationStatus = 'agreed';
+      booking.status = 'confirmed';
+      booking.timeline.push({
+        title: 'রেট নিশ্চিত ও বুকিং সম্পন্ন',
+        message: `আপনি প্রস্তাবিত ৳${booking.quotedPrice} রেট গ্রহণ করেছেন। শীঘ্রই দায়িত্বপ্রাপ্ত টিম আপনার সাথে যোগাযোগ করবে।`,
+        time: new Date(),
+        status: 'agreed',
+      });
+
+      if (booking.user) {
+        try {
+          await Notification.create({
+            userId: booking.user,
+            title: 'বুকিং নিশ্চিত হয়েছে!',
+            body: `আপনার বাসা বদল ও হোম সার্ভিস বুকিং ৳${booking.quotedPrice} মূল্যে নিশ্চিত হয়েছে।`,
+            type: 'HOME_SERVICE',
+            data: {
+              action: 'VIEW_BOOKING',
+              metadata: { bookingId: booking._id },
+            },
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    } else if (action === 'counter') {
+      const parsedCounter = parseInt(counterPrice, 10) || 0;
+      if (parsedCounter <= 0) {
+        const err = new Error('সঠিক বাজেট উল্লেখ করুন');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      booking.counterPrice = parsedCounter;
+      booking.counterNote = counterNote || '';
+      booking.negotiationStatus = 'countered';
+      booking.timeline.push({
+        title: 'কাউন্টার অফার পাঠানো হয়েছে',
+        message: `আপনার প্রস্তাবিত বাজেট (৳${parsedCounter}) আমাদের টিম গ্রহণ করেছে। টিম সার্ভিস প্রোভাইডারদের সাথে পুনরায় আলোচনা করে এই বাজেটে সম্ভব কিনা তা যাচাই করছে।`,
+        time: new Date(),
+        status: 'countered',
+      });
+
+      if (booking.user) {
+        try {
+          await Notification.create({
+            userId: booking.user,
+            title: 'বাজেট প্রস্তাব পাঠানো হয়েছে',
+            body: `আপনার প্রস্তাবিত বাজেট ৳${parsedCounter} নিয়ে সার্ভিস প্রোভাইডারদের সাথে আলোচনা চলছে।`,
+            type: 'HOME_SERVICE',
+            data: {
+              action: 'VIEW_BOOKING',
+              metadata: { bookingId: booking._id },
+            },
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+    }
+
+    await booking.save();
+    return booking;
+  }
+
+  /**
+   * Admin quotes price
+   */
+  async quotePriceAdmin(bookingId, { quotedPrice, priceNote }) {
+    const booking = await HomeServiceBooking.findById(bookingId);
+    if (!booking) {
+      const err = new Error('বুকিংটি পাওয়া যায়নি');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const price = parseInt(quotedPrice, 10);
+    if (!price || price <= 0) {
+      const err = new Error('সঠিক মূল্য প্রদান করুন');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    booking.quotedPrice = price;
+    booking.priceNote = priceNote || '';
+    booking.negotiationStatus = 'quoted';
+    booking.timeline.push({
+      title: 'মূল্য নির্ধারণ হয়েছে',
+      message: `আপনার সেবাসমূহের মোট খরচ ৳${price} নির্ধারণ করা হয়েছে। অফারটি গ্রহণ বা দরদাম করতে পারেন।`,
+      time: new Date(),
+      status: 'quoted',
+    });
+
+    await booking.save();
+
+    if (booking.user) {
+      try {
+        await Notification.create({
+          userId: booking.user,
+          title: 'সেবার মূল্য নির্ধারণ হয়েছে',
+          body: `আপনার অনুরোধকৃত সেবার মোট খরচ ৳${price} নির্ধারণ করা হয়েছে। অ্যাপে দেখে কনফার্ম করুন।`,
+          type: 'HOME_SERVICE',
+          data: {
+            action: 'VIEW_BOOKING',
+            metadata: { bookingId: booking._id },
+          },
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
     return booking;
   }
 
@@ -98,6 +261,8 @@ class HomeServiceService {
     if (updateData.assignedProvider) booking.assignedProvider = updateData.assignedProvider;
     if (updateData.adminNotes !== undefined) booking.adminNotes = updateData.adminNotes;
     if (updateData.estimatedPrice !== undefined) booking.estimatedPrice = updateData.estimatedPrice;
+    if (updateData.quotedPrice !== undefined) booking.quotedPrice = updateData.quotedPrice;
+    if (updateData.negotiationStatus) booking.negotiationStatus = updateData.negotiationStatus;
 
     await booking.save();
     return booking;

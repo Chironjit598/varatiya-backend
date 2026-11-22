@@ -13,7 +13,29 @@ class HomeServiceController {
 
       return ApiResponse.success(res, {
         statusCode: 201,
-        message: 'আপনার সেবা অনুরোধটি সফলভাবে গ্রহণ করা হয়েছে। আমাদের টিম খুব দ্রুত আপনার সাথে যোগাযোগ করবে।',
+        message: 'আপনার সেবা অনুরোধটি সফলভাবে গ্রহণ করা হয়েছে। টিম আলোচনা সাপেক্ষে কিছুক্ষণের মধ্যে রেট জানিয়ে দেবে।',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * User responds to price quote (Accept / Counter)
+   * POST /api/home-services/booking/:id/respond-quote
+   */
+  async respondToQuote(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await homeService.respondToQuote(id, req.body);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message:
+          req.body.action === 'accept'
+            ? 'বুকিং অফারটি গৃহীত হয়েছে ও কনফার্ম হয়েছে!'
+            : 'আপনার প্রস্তাবিত বাজেট সফলভাবে জমা হয়েছে।',
         data: result,
       });
     } catch (error) {
@@ -35,6 +57,25 @@ class HomeServiceController {
         statusCode: 200,
         message: 'বুকিং তালিকা সফলভাবে লোড হয়েছে',
         data: bookings,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Admin: Quote price for a booking
+   * POST /api/home-services/admin/:id/quote
+   */
+  async quotePriceAdmin(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await homeService.quotePriceAdmin(id, req.body);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'মূল্য সফলভাবে গ্রাহককে জানানো হয়েছে',
+        data: result,
       });
     } catch (error) {
       next(error);

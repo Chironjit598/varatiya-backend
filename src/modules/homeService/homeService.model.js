@@ -17,10 +17,21 @@ const homeServiceBookingSchema = new mongoose.Schema(
       required: [true, 'মোবাইল নম্বর আবশ্যক'],
       trim: true,
     },
+    // একাধিক সার্ভিসের তালিকা (Multi-Service Support)
+    selectedServices: [
+      {
+        category: { type: String, required: true }, // shifting, electrician, fridge_ac, gas_plumbing
+        categoryBn: { type: String, default: '' },
+        subTypes: { type: [String], default: [] },
+        subTypesBn: { type: [String], default: [] },
+        helpersCount: { type: Number, default: 0 },
+        details: { type: String, default: '' },
+      },
+    ],
+    // ব্যাকওয়ার্ড কম্প্যাটিবিলিটির জন্য সিঙ্গেল সার্ভিস ফিল্ড
     serviceCategory: {
       type: String,
-      required: [true, 'সার্ভিস ক্যাটাগরি নির্বাচন করুন'],
-      enum: ['shifting', 'electrician', 'fridge_ac', 'gas_plumbing', 'other'],
+      default: 'shifting',
     },
     serviceCategoryBn: {
       type: String,
@@ -28,8 +39,7 @@ const homeServiceBookingSchema = new mongoose.Schema(
     },
     serviceType: {
       type: String,
-      required: [true, 'সার্ভিসের ধরন উল্লেখ করুন'],
-      trim: true,
+      default: '',
     },
     serviceTypeBn: {
       type: String,
@@ -64,10 +74,37 @@ const homeServiceBookingSchema = new mongoose.Schema(
       trim: true,
       default: '',
     },
-    estimatedPrice: {
+    // ডিজিটাল প্রাইস কোটেশন ও নেগোসিয়েশন ফিল্ডস
+    quotedPrice: {
       type: Number,
       default: 0,
     },
+    priceNote: {
+      type: String,
+      default: '',
+    },
+    counterPrice: {
+      type: Number,
+      default: 0,
+    },
+    counterNote: {
+      type: String,
+      default: '',
+    },
+    negotiationStatus: {
+      type: String,
+      enum: ['pending', 'quoted', 'countered', 'agreed', 'rejected'],
+      default: 'pending',
+    },
+    // রিয়েল-টাইম অ্যাক্টিভিটি টাইমলাইন (Live Updates Feed)
+    timeline: [
+      {
+        title: { type: String, required: true },
+        message: { type: String, required: true },
+        time: { type: Date, default: Date.now },
+        status: { type: String, default: 'info' },
+      },
+    ],
     status: {
       type: String,
       enum: ['pending', 'confirmed', 'assigned', 'in_progress', 'completed', 'cancelled'],
@@ -91,5 +128,6 @@ const homeServiceBookingSchema = new mongoose.Schema(
 homeServiceBookingSchema.index({ phone: 1, createdAt: -1 });
 homeServiceBookingSchema.index({ user: 1, createdAt: -1 });
 homeServiceBookingSchema.index({ status: 1, createdAt: -1 });
+homeServiceBookingSchema.index({ negotiationStatus: 1, createdAt: -1 });
 
 module.exports = mongoose.model('HomeServiceBooking', homeServiceBookingSchema);
