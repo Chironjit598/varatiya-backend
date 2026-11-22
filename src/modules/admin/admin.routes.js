@@ -65,6 +65,12 @@ router.get('/api/house-hunter', adminController.getHouseHunterRequests.bind(admi
 router.patch('/api/house-hunter/:id', adminController.updateHouseHunterRequest.bind(adminController));
 router.delete('/api/house-hunter/:id', adminController.deleteHouseHunterRequest.bind(adminController));
 
+// Home Services & Shifting Bookings Management
+router.get('/api/home-services', adminController.getHomeServiceBookings.bind(adminController));
+router.post('/api/home-services/:id/quote', adminController.quoteHomeServicePrice.bind(adminController));
+router.patch('/api/home-services/:id/status', adminController.updateHomeServiceStatus.bind(adminController));
+router.delete('/api/home-services/:id', adminController.deleteHomeServiceBooking.bind(adminController));
+
 // Push Notifications Broadcast & Logs
 router.get('/api/notifications/audience-count', adminController.getAudienceCount.bind(adminController));
 router.post('/api/notifications/send-push', adminController.sendPushNotification.bind(adminController));

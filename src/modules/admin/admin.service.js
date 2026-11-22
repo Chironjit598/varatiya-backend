@@ -11,6 +11,7 @@ const paymentService = require('../payment/payment.service');
 const AppConfig = require('./appConfig.model');
 const CrmLead = require('./crmLead.model');
 const PushLog = require('./pushLog.model');
+const HomeServiceBooking = require('../homeService/homeService.model');
 const { sendFcmPushNotification, isFirebaseInitialized } = require('../../config/firebase');
 const locationHelper = require('../../utils/locationHelper');
 
@@ -149,6 +150,8 @@ class AdminService {
       totalReports,
       activeReports,
       todayFollowUpsCount,
+      totalHomeServices,
+      pendingHomeServices,
     ] = await Promise.all([
       User.countDocuments(),
       User.find({ createdAt: { $gte: startOfToday } })
@@ -171,6 +174,8 @@ class AdminService {
       CrmLead.countDocuments({
         nextFollowUpDate: { $lte: new Date(startOfToday.getTime() + 24 * 3600 * 1000 - 1) },
       }),
+      HomeServiceBooking.countDocuments(),
+      HomeServiceBooking.countDocuments({ negotiationStatus: 'pending' }),
     ]);
 
     // Build enriched limit reached devices
@@ -252,6 +257,8 @@ class AdminService {
         totalReports,
         activeReports,
         todayFollowUpsCount: todayFollowUpsCount || 0,
+        totalHomeServices: totalHomeServices || 0,
+        pendingHomeServices: pendingHomeServices || 0,
         appMode: paymentService.getAppMode(),
         isPaymentEnabled: paymentService.isPaymentEnabled(),
         currentMonthYear,

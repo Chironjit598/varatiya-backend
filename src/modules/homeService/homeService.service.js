@@ -267,6 +267,19 @@ class HomeServiceService {
     await booking.save();
     return booking;
   }
+
+  /**
+   * Admin: Delete booking
+   */
+  async deleteBookingAdmin(id) {
+    const booking = await HomeServiceBooking.findByIdAndDelete(id);
+    if (!booking) {
+      const err = new Error('বুকিংটি পাওয়া যায়নি');
+      err.statusCode = 404;
+      throw err;
+    }
+    return { success: true, message: 'বুকিংটি সফলভাবে মুছে ফেলা হয়েছে' };
+  }
 }
 
 module.exports = new HomeServiceService();

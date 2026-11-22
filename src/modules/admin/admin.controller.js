@@ -2,6 +2,7 @@ const path = require('path');
 const adminService = require('./admin.service');
 const propertyService = require('../property/property.service');
 const houseHunterService = require('../houseHunter/houseHunter.service');
+const homeServiceService = require('../homeService/homeService.service');
 const ApiResponse = require('../../utils/apiResponse');
 
 class AdminController {
@@ -537,6 +538,78 @@ class AdminController {
     try {
       const { id } = req.params;
       const result = await houseHunterService.deleteRequestAdmin(id);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Home Services - Get All Bookings
+   * GET /admin/api/home-services
+   */
+  async getHomeServiceBookings(req, res, next) {
+    try {
+      const { page, limit, status, search } = req.query;
+      const result = await homeServiceService.getAllBookingsAdmin({ page, limit, status, search });
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'হোম সার্ভিস বুকিং তালিকা লোড হয়েছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Home Services - Quote Price
+   * POST /admin/api/home-services/:id/quote
+   */
+  async quoteHomeServicePrice(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await homeServiceService.quotePriceAdmin(id, req.body);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'মূল্য নির্ধারণ সফল হয়েছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Home Services - Update Status
+   * PATCH /admin/api/home-services/:id/status
+   */
+  async updateHomeServiceStatus(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await homeServiceService.updateBookingStatus(id, req.body);
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: 'বুকিং স্ট্যাটাস আপডেট হয়েছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API: Home Services - Delete Booking
+   * DELETE /admin/api/home-services/:id
+   */
+  async deleteHomeServiceBooking(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await homeServiceService.deleteBookingAdmin(id);
       return ApiResponse.success(res, {
         statusCode: 200,
         message: result.message,
