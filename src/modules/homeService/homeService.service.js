@@ -1,5 +1,6 @@
 const HomeServiceBooking = require('./homeService.model');
 const Notification = require('../notification/notification.model');
+const { emitHomeServiceEvent } = require('../../config/socket');
 
 class HomeServiceService {
   /**
@@ -52,6 +53,12 @@ class HomeServiceService {
       } catch (err) {
         console.error('Failed to create notification for home service booking:', err);
       }
+    }
+
+    try {
+      emitHomeServiceEvent('home_service:new_booking', booking);
+    } catch (socketErr) {
+      console.error('[Socket.IO] Error emitting new booking:', socketErr);
     }
 
     return booking;
@@ -131,6 +138,13 @@ class HomeServiceService {
     }
 
     await booking.save();
+
+    try {
+      emitHomeServiceEvent('home_service:negotiation_updated', booking);
+    } catch (socketErr) {
+      console.error('[Socket.IO] Error emitting negotiation update:', socketErr);
+    }
+
     return booking;
   }
 
@@ -179,6 +193,12 @@ class HomeServiceService {
       } catch (err) {
         console.error(err);
       }
+    }
+
+    try {
+      emitHomeServiceEvent('home_service:quote_updated', booking);
+    } catch (socketErr) {
+      console.error('[Socket.IO] Error emitting quote update:', socketErr);
     }
 
     return booking;
@@ -265,6 +285,13 @@ class HomeServiceService {
     if (updateData.negotiationStatus) booking.negotiationStatus = updateData.negotiationStatus;
 
     await booking.save();
+
+    try {
+      emitHomeServiceEvent('home_service:status_updated', booking);
+    } catch (socketErr) {
+      console.error('[Socket.IO] Error emitting status update:', socketErr);
+    }
+
     return booking;
   }
 

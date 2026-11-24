@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>বাসা বন্ধু — অল-ইন-ওয়ান এডমিন কন্ট্রোল সেন্টার</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -2126,6 +2127,80 @@
     }
 
     // ─────────────────────────────────────────────────────────────
+    // REAL-TIME SOCKET.IO INITIALIZATION
+    // ─────────────────────────────────────────────────────────────
+    let adminSocket = null;
+    function initAdminSocket() {
+      if (typeof io === 'undefined') {
+        console.warn('[Socket.IO] io is undefined. Script might not be loaded.');
+        return;
+      }
+      if (adminSocket && adminSocket.connected) return;
+
+      adminSocket = io();
+
+      adminSocket.on('connect', () => {
+        console.log('[Socket.IO] Connected to server as admin:', adminSocket.id);
+        adminSocket.emit('join_admin', { admin: currentAdmin });
+      });
+
+      // 1. New home service booking submitted by customer
+      adminSocket.on('home_service:new_booking', (data) => {
+        const booking = data.booking || {};
+        showToast(`নতুন সেবা বুকিং এসেছে! গ্রাহক: ${booking.name || 'নতুন গ্রাহক'} (নম্বর: ${booking.phone || ''}) 🔔`, 'info');
+        fetchStats();
+        const activeTab = tabs.find(t => {
+          const btn = document.getElementById(`nav-${t}`);
+          return btn && btn.classList.contains('tab-active');
+        });
+        if (activeTab === 'homeServices') {
+          fetchHomeServices();
+        }
+      });
+
+      // 2. Customer accepted or countered the price
+      adminSocket.on('home_service:negotiation_updated', (data) => {
+        const booking = data.booking || {};
+        if (booking.negotiationStatus === 'countered') {
+          showToast(`গ্রাহক (${booking.name}) নতুন বাজেট প্রস্তাব করেছেন: ৳${booking.counterPrice}! 🤝`, 'warning');
+        } else if (booking.negotiationStatus === 'agreed') {
+          showToast(`অভিনন্দন! গ্রাহক (${booking.name}) প্রস্তাবিত ৳${booking.quotedPrice} রেট গ্রহণ করেছেন ও বুকিং চূড়ান্ত হয়েছে! ✅`, 'success');
+        }
+        fetchStats();
+        const activeTab = tabs.find(t => {
+          const btn = document.getElementById(`nav-${t}`);
+          return btn && btn.classList.contains('tab-active');
+        });
+        if (activeTab === 'homeServices') {
+          fetchHomeServices();
+        }
+      });
+
+      // 3. Status or quote updated
+      adminSocket.on('home_service:quote_updated', () => {
+        fetchStats();
+        const activeTab = tabs.find(t => {
+          const btn = document.getElementById(`nav-${t}`);
+          return btn && btn.classList.contains('tab-active');
+        });
+        if (activeTab === 'homeServices') {
+          fetchHomeServices();
+        }
+      });
+
+      adminSocket.on('home_service:status_updated', () => {
+        fetchStats();
+        const activeTab = tabs.find(t => {
+          const btn = document.getElementById(`nav-${t}`);
+          return btn && btn.classList.contains('tab-active');
+        });
+        if (activeTab === 'homeServices') {
+          fetchHomeServices();
+        }
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // AUTHENTICATION
     // ─────────────────────────────────────────────────────────────
     function checkAuth() {
@@ -2177,6 +2252,7 @@
         fetchAllData();
         startAutoRefresh();
         loadLocations();
+        initAdminSocket();
       }
     }
 

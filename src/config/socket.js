@@ -82,6 +82,32 @@ const initSocket = (httpServer) => {
       }
     });
 
+    // Admin Dashboard joins admin room for real-time order notifications
+    socket.on('join_admin', (adminData) => {
+      socket.join('admin_dashboard');
+      socket.join('home_service_admins');
+      console.log(`[Socket.IO] Admin joined admin_dashboard & home_service_admins room: ${socket.id}`);
+    });
+
+    // Join room for specific home service booking
+    socket.on('join_booking', (bookingId) => {
+      if (bookingId) {
+        const room = `booking_${bookingId.toString()}`;
+        socket.join(room);
+        console.log(`[Socket.IO] Client ${socket.id} joined ${room}`);
+      }
+    });
+
+    // Join room by client phone number
+    socket.on('join_phone', (phone) => {
+      if (phone) {
+        const cleanPhone = phone.toString().replace(/[^0-9]/g, '');
+        const room = `phone_${cleanPhone}`;
+        socket.join(room);
+        console.log(`[Socket.IO] Client ${socket.id} joined phone room: ${room}`);
+      }
+    });
+
     socket.on('disconnect', (reason) => {
       // Clean disconnect
     });
@@ -127,11 +153,47 @@ const sendNotificationReadUpdate = (userId, notificationId) => {
   io.to(userRoom).emit('notification:read', { id: notificationId });
 };
 
+/**
+ * Real-time Home Service Socket Events
+ */
+const emitHomeServiceEvent = (eventName, booking) => {
+  if (!io || !booking) return;
+  const bookingId = (booking._id || booking.id || '').toString();
+  const userId = booking.user ? (booking.user._id || booking.user).toString() : null;
+  const cleanPhone = (booking.phone || '').replace(/[^0-9]/g, '');
+
+  const payload = {
+    event: eventName,
+    booking,
+    timestamp: new Date(),
+  };
+
+  // Broadcast to admin dashboard
+  io.to('admin_dashboard').emit(eventName, payload);
+  io.to('home_service_admins').emit(eventName, payload);
+
+  // Broadcast to booking room
+  if (bookingId) {
+    io.to(`booking_${bookingId}`).emit(eventName, payload);
+  }
+
+  // Broadcast to user room if authenticated
+  if (userId) {
+    io.to(`user_${userId}`).emit(eventName, payload);
+  }
+
+  // Broadcast to phone room for guest users
+  if (cleanPhone) {
+    io.to(`phone_${cleanPhone}`).emit(eventName, payload);
+  }
+};
+
 module.exports = {
   initSocket,
   getIO,
   sendNotificationToUser,
   sendUnreadCountUpdate,
   sendNotificationReadUpdate,
+  emitHomeServiceEvent,
 };
 
