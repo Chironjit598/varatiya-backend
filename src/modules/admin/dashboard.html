@@ -1890,6 +1890,13 @@
           <label class="block text-xs font-bold text-slate-700 mb-1">খরচের বিবরণ / গ্রাহকের জন্য নোট (ঐচ্ছিক)</label>
           <textarea id="inputPriceNote" rows="2" placeholder="যেমন: পিকআপ ভ্যান + ২ জন কুলি এবং সার্ভিস চার্জ সহ মোট খরচ..." class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
         </div>
+
+        <div class="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50/80 border border-amber-200">
+          <input type="checkbox" id="inputIsFinalPrice" class="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500">
+          <label for="inputIsFinalPrice" class="text-[11.5px] font-bold text-amber-900 cursor-pointer select-none">
+            🔒 এটিই প্রোভাইডারের চূড়ান্ত সর্বনিম্ন মূল্য (আর দরদাম করা যাবে না)
+          </label>
+        </div>
       </div>
 
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
@@ -4837,6 +4844,7 @@
       document.getElementById('quoteCustomerPhone').textContent = phone;
       document.getElementById('inputQuotedPrice').value = quotedPrice > 0 ? quotedPrice : '';
       document.getElementById('inputPriceNote').value = priceNote || '';
+      document.getElementById('inputIsFinalPrice').checked = false;
       document.getElementById('quotePriceModal').classList.remove('hidden');
 
       if (adminSocket && adminSocket.connected) {
@@ -4856,6 +4864,7 @@
       if (!currentQuoteBookingId) return;
       const price = parseInt(document.getElementById('inputQuotedPrice').value, 10);
       const note = document.getElementById('inputPriceNote').value.trim();
+      const isFinalPrice = document.getElementById('inputIsFinalPrice').checked;
 
       if (!price || price <= 0) {
         showStatusPopup({ title: 'ভুল ইনপুট', message: 'অনুগ্রহ করে সঠিক মূল্য (টাকা) প্রদান করুন।', type: 'error' });
@@ -4869,7 +4878,8 @@
       try {
         await apiCall(`/home-services/${currentQuoteBookingId}/quote`, 'POST', {
           quotedPrice: price,
-          priceNote: note
+          priceNote: note,
+          isFinalPrice: isFinalPrice
         });
 
         if (adminSocket && adminSocket.connected && currentQuoteBookingId) {

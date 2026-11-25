@@ -90,7 +90,7 @@ class HomeServiceService {
           await Notification.create({
             userId: booking.user,
             title: 'বুকিং নিশ্চিত হয়েছে!',
-            body: `আপনার বাসা বদল ও হোম সার্ভিস বুকিং ৳${booking.quotedPrice} মূল্যে নিশ্চিত হয়েছে।`,
+            body: `আপনার হোম সার্ভিস বুকিং ৳${booking.quotedPrice} মূল্যে নিশ্চিত হয়েছে।`,
             type: 'HOME_SERVICE',
             data: {
               action: 'VIEW_BOOKING',
@@ -101,6 +101,15 @@ class HomeServiceService {
           console.error(err);
         }
       }
+    } else if (action === 'decline' || action === 'reject') {
+      booking.negotiationStatus = 'rejected';
+      booking.status = 'cancelled';
+      booking.timeline.push({
+        title: 'অনুরোধ সমাপ্ত',
+        message: 'বাজেট না মেলায় গ্রাহক প্রস্তাবিত অফারটি বাতিল করেছেন।',
+        time: new Date(),
+        status: 'cancelled',
+      });
     } else if (action === 'counter') {
       const parsedCounter = parseInt(counterPrice, 10) || 0;
       if (parsedCounter <= 0) {
@@ -111,9 +120,10 @@ class HomeServiceService {
 
       booking.counterPrice = parsedCounter;
       booking.counterNote = counterNote || '';
+      booking.counterCount = (booking.counterCount || 0) + 1;
       booking.negotiationStatus = 'countered';
       booking.timeline.push({
-        title: 'কাউন্টার অফার পাঠানো হয়েছে',
+        title: `কাউন্টার অফার (${booking.counterCount}/${booking.maxCounterRounds || 2})`,
         message: `আপনার প্রস্তাবিত বাজেট (৳${parsedCounter}) আমাদের টিম গ্রহণ করেছে। টিম সার্ভিস প্রোভাইডারদের সাথে পুনরায় আলোচনা করে এই বাজেটে সম্ভব কিনা তা যাচাই করছে।`,
         time: new Date(),
         status: 'countered',
@@ -151,7 +161,7 @@ class HomeServiceService {
   /**
    * Admin quotes price
    */
-  async quotePriceAdmin(bookingId, { quotedPrice, priceNote }) {
+  async quotePriceAdmin(bookingId, { quotedPrice, priceNote, isFinalPrice }) {
     const booking = await HomeServiceBooking.findById(bookingId);
     if (!booking) {
       const err = new Error('বুকিংটি পাওয়া যায়নি');
@@ -168,10 +178,15 @@ class HomeServiceService {
 
     booking.quotedPrice = price;
     booking.priceNote = priceNote || '';
+    if (isFinalPrice !== undefined) {
+      booking.isFinalPrice = Boolean(isFinalPrice);
+    }
     booking.negotiationStatus = 'quoted';
     booking.timeline.push({
-      title: 'মূল্য নির্ধারণ হয়েছে',
-      message: `আপনার সেবাসমূহের মোট খরচ ৳${price} নির্ধারণ করা হয়েছে। অফারটি গ্রহণ বা দরদাম করতে পারেন।`,
+      title: booking.isFinalPrice ? 'চূড়ান্ত সর্বনিম্ন রেট নির্ধারণ' : 'মূল্য নির্ধারণ হয়েছে',
+      message: booking.isFinalPrice
+        ? `প্রোভাইডারদের সর্বনিম্ন ও চূড়ান্ত খরচ ৳${price} নির্ধারণ করা হয়েছে। এটি ফিক্সড রেট।`
+        : `আপনার সেবাসমূহের মোট খরচ ৳${price} নির্ধারণ করা হয়েছে। অফারটি গ্রহণ বা দরদাম করতে পারেন।`,
       time: new Date(),
       status: 'quoted',
     });

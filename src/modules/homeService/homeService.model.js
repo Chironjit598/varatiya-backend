@@ -91,6 +91,18 @@ const homeServiceBookingSchema = new mongoose.Schema(
       type: String,
       default: '',
     },
+    counterCount: {
+      type: Number,
+      default: 0,
+    },
+    maxCounterRounds: {
+      type: Number,
+      default: 2,
+    },
+    isFinalPrice: {
+      type: Boolean,
+      default: false,
+    },
     negotiationStatus: {
       type: String,
       enum: ['pending', 'quoted', 'countered', 'agreed', 'rejected'],
