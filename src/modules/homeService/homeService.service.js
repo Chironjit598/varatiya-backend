@@ -118,12 +118,26 @@ class HomeServiceService {
         throw err;
       }
 
+      const currentCounter = booking.counterCount || 0;
+      const maxRounds = booking.maxCounterRounds || 2;
+      if (booking.isFinalPrice || currentCounter >= maxRounds) {
+        const err = new Error('সর্বোচ্চ দরদামের সীমা পূর্ণ হয়েছে অথবা এটি চূড়ান্ত সর্বনিম্ন রেট। আর দরদাম করার সুযোগ নেই।');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      if (booking.quotedPrice > 0 && parsedCounter >= booking.quotedPrice) {
+        const err = new Error(`কাউন্টার বাজেট অবশ্যই বর্তমান অফার (৳${booking.quotedPrice})-এর চেয়ে কম হতে হবে`);
+        err.statusCode = 400;
+        throw err;
+      }
+
       booking.counterPrice = parsedCounter;
       booking.counterNote = counterNote || '';
-      booking.counterCount = (booking.counterCount || 0) + 1;
+      booking.counterCount = currentCounter + 1;
       booking.negotiationStatus = 'countered';
       booking.timeline.push({
-        title: `কাউন্টার অফার (${booking.counterCount}/${booking.maxCounterRounds || 2})`,
+        title: `কাউন্টার অফার (${booking.counterCount}/${maxRounds})`,
         message: `আপনার প্রস্তাবিত বাজেট (৳${parsedCounter}) আমাদের টিম গ্রহণ করেছে। টিম সার্ভিস প্রোভাইডারদের সাথে পুনরায় আলোচনা করে এই বাজেটে সম্ভব কিনা তা যাচাই করছে।`,
         time: new Date(),
         status: 'countered',
@@ -298,8 +312,37 @@ class HomeServiceService {
       throw err;
     }
 
-    if (updateData.status) booking.status = updateData.status;
-    if (updateData.assignedProvider) booking.assignedProvider = updateData.assignedProvider;
+    if (updateData.status && updateData.status !== booking.status) {
+      booking.status = updateData.status;
+      if (updateData.status === 'completed') {
+        booking.timeline.push({
+          title: 'সেবা সম্পন্ন',
+          message: 'আপনার হোম সার্ভিসটি সফলভাবে সম্পন্ন হয়েছে। আমাদের সাথে থাকার জন্য ধন্যবাদ!',
+          time: new Date(),
+          status: 'completed',
+        });
+      } else if (updateData.status === 'cancelled') {
+        booking.timeline.push({
+          title: 'বুকিং বাতিল',
+          message: 'এডমিন টিম কর্তৃক বুকিংটি বাতিল করা হয়েছে।',
+          time: new Date(),
+          status: 'cancelled',
+        });
+      }
+    }
+    if (updateData.assignedProvider) {
+      const prevName = booking.assignedProvider?.name || '';
+      const newName = updateData.assignedProvider.name || '';
+      booking.assignedProvider = updateData.assignedProvider;
+      if (newName && newName !== prevName) {
+        booking.timeline.push({
+          title: 'টেকনিশিয়ান / ড্রাইভার নির্ধারিত',
+          message: `${newName} (${updateData.assignedProvider.phone || 'ফোন উপলব্ধ'})-কে আপনার সেবার দায়িত্ব দেওয়া হয়েছে।`,
+          time: new Date(),
+          status: 'assigned',
+        });
+      }
+    }
     if (updateData.adminNotes !== undefined) booking.adminNotes = updateData.adminNotes;
     if (updateData.estimatedPrice !== undefined) booking.estimatedPrice = updateData.estimatedPrice;
     if (updateData.quotedPrice !== undefined) booking.quotedPrice = updateData.quotedPrice;
