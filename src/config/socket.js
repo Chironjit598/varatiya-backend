@@ -158,13 +158,19 @@ const sendNotificationReadUpdate = (userId, notificationId) => {
  */
 const emitHomeServiceEvent = (eventName, booking) => {
   if (!io || !booking) return;
-  const bookingId = (booking._id || booking.id || '').toString();
-  const userId = booking.user ? (booking.user._id || booking.user).toString() : null;
-  const cleanPhone = (booking.phone || '').replace(/[^0-9]/g, '');
+
+  // Ensure clean plain object serialization for Socket.IO clients
+  const cleanBooking = booking.toObject ? booking.toObject() : { ...booking };
+  cleanBooking._id = (cleanBooking._id || cleanBooking.id || '').toString();
+  cleanBooking.id = cleanBooking._id;
+
+  const bookingId = cleanBooking._id;
+  const userId = cleanBooking.user ? (cleanBooking.user._id || cleanBooking.user).toString() : null;
+  const cleanPhone = (cleanBooking.phone || '').toString().replace(/[^0-9]/g, '');
 
   const payload = {
     event: eventName,
-    booking,
+    booking: cleanBooking,
     timestamp: new Date(),
   };
 
