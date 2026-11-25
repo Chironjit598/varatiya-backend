@@ -4838,9 +4838,16 @@
       document.getElementById('inputQuotedPrice').value = quotedPrice > 0 ? quotedPrice : '';
       document.getElementById('inputPriceNote').value = priceNote || '';
       document.getElementById('quotePriceModal').classList.remove('hidden');
+
+      if (adminSocket && adminSocket.connected) {
+        adminSocket.emit('home_service:admin_typing', { bookingId: id, phone: phone, isReviewing: true });
+      }
     }
 
     function closeQuoteModal() {
+      if (adminSocket && adminSocket.connected && currentQuoteBookingId) {
+        adminSocket.emit('home_service:admin_typing', { bookingId: currentQuoteBookingId, isReviewing: false });
+      }
       document.getElementById('quotePriceModal').classList.add('hidden');
       currentQuoteBookingId = null;
     }
@@ -4864,6 +4871,10 @@
           quotedPrice: price,
           priceNote: note
         });
+
+        if (adminSocket && adminSocket.connected && currentQuoteBookingId) {
+          adminSocket.emit('home_service:admin_typing', { bookingId: currentQuoteBookingId, isReviewing: false });
+        }
         showStatusPopup({
           title: 'কোটেশন সফল! 🏷️',
           message: `গ্রাহকের নিকট ৳${price} মূল্যের অফার সফলভাবে পাঠানো হয়েছে।`,

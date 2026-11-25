@@ -108,6 +108,24 @@ const initSocket = (httpServer) => {
       }
     });
 
+    // Admin reviewing/typing status indicator
+    socket.on('home_service:admin_typing', (data) => {
+      if (data && data.bookingId) {
+        const payload = {
+          bookingId: data.bookingId.toString(),
+          isReviewing: Boolean(data.isReviewing),
+          timestamp: new Date(),
+        };
+        io.to(`booking_${data.bookingId}`).emit('home_service:admin_reviewing', payload);
+        if (data.phone) {
+          const cleanPhone = data.phone.toString().replace(/[^0-9]/g, '');
+          if (cleanPhone) {
+            io.to(`phone_${cleanPhone}`).emit('home_service:admin_reviewing', payload);
+          }
+        }
+      }
+    });
+
     socket.on('disconnect', (reason) => {
       // Clean disconnect
     });
