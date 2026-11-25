@@ -4693,7 +4693,7 @@
                 <span class="font-black text-sky-800 text-sm ml-1">৳ ${b.quotedPrice}</span>
                 ${b.priceNote ? `<p class="text-[11px] text-sky-600 mt-0.5">নোট: ${b.priceNote}</p>` : ''}
               </div>
-              <button onclick="openQuoteModal('${id}', '${b.name}', '${b.phone}', ${b.quotedPrice || 0}, '${(b.priceNote || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-white hover:bg-sky-100 text-sky-700 font-bold rounded-lg border border-sky-300 text-[11px] transition-all">
+              <button onclick="openQuoteModal('${id}', '${b.name}', '${b.phone}', ${b.quotedPrice || 0}, '${(b.priceNote || '').replace(/'/g, "\\'")}', ${b.isFinalPrice === true}, ${b.counterCount || 0}, ${b.maxCounterRounds || 2})" class="px-2.5 py-1 bg-white hover:bg-sky-100 text-sky-700 font-bold rounded-lg border border-sky-300 text-[11px] transition-all">
                 পুনরায় কোট
               </button>
             </div>
@@ -4706,8 +4706,9 @@
                 <span class="font-black text-orange-900 text-sm ml-1">৳ ${b.counterPrice}</span>
                 ${b.counterNote ? `<p class="text-[11px] text-orange-700 mt-0.5">গ্রাহকের নোট: ${b.counterNote}</p>` : ''}
                 ${b.quotedPrice ? `<p class="text-[10px] text-slate-500 line-through">আগের কোট: ৳${b.quotedPrice}</p>` : ''}
+                <p class="text-[10px] text-orange-800 font-bold mt-1">কাউন্টার রাউন্ড: ${b.counterCount || 1}/${b.maxCounterRounds || 2}</p>
               </div>
-              <button onclick="openQuoteModal('${id}', '${b.name}', '${b.phone}', ${b.counterPrice || b.quotedPrice || 0}, '${(b.priceNote || '').replace(/'/g, "\\'")}')" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-[11px] transition-all shadow-sm">
+              <button onclick="openQuoteModal('${id}', '${b.name}', '${b.phone}', ${b.counterPrice || b.quotedPrice || 0}, '${(b.priceNote || '').replace(/'/g, "\\'")}', ${b.isFinalPrice === true}, ${b.counterCount || 0}, ${b.maxCounterRounds || 2})" class="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-[11px] transition-all shadow-sm">
                 নতুন রেট পাঠান
               </button>
             </div>
@@ -4716,7 +4717,7 @@
           priceHtml = `
             <div class="p-2.5 rounded-xl bg-amber-50/70 border border-amber-200 text-xs flex justify-between items-center">
               <span class="text-amber-800 font-bold">কোটেশন বাকি (রেট পাঠানো হয়নি)</span>
-              <button onclick="openQuoteModal('${id}', '${b.name}', '${b.phone}', 0, '')" class="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-lg text-xs transition-all shadow-sm flex items-center gap-1">
+              <button onclick="openQuoteModal('${id}', '${b.name}', '${b.phone}', 0, '', false, 0, 2)" class="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-black rounded-lg text-xs transition-all shadow-sm flex items-center gap-1">
                 <i class="fa-solid fa-tag"></i>
                 <span>রেট কোট করুন</span>
               </button>
@@ -4838,13 +4839,15 @@
       fetchHomeServices();
     }
 
-    function openQuoteModal(id, name, phone, quotedPrice, priceNote) {
+    function openQuoteModal(id, name, phone, quotedPrice, priceNote, isFinalPrice, counterCount, maxCounterRounds) {
       currentQuoteBookingId = id;
       document.getElementById('quoteCustomerName').textContent = name;
       document.getElementById('quoteCustomerPhone').textContent = phone;
       document.getElementById('inputQuotedPrice').value = quotedPrice > 0 ? quotedPrice : '';
       document.getElementById('inputPriceNote').value = priceNote || '';
-      document.getElementById('inputIsFinalPrice').checked = false;
+      
+      const shouldLock = Boolean(isFinalPrice) || (Number(counterCount) >= Number(maxCounterRounds || 2));
+      document.getElementById('inputIsFinalPrice').checked = shouldLock;
       document.getElementById('quotePriceModal').classList.remove('hidden');
 
       if (adminSocket && adminSocket.connected) {

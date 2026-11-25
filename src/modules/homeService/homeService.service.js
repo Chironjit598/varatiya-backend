@@ -178,14 +178,18 @@ class HomeServiceService {
 
     booking.quotedPrice = price;
     booking.priceNote = priceNote || '';
-    if (isFinalPrice !== undefined) {
-      booking.isFinalPrice = Boolean(isFinalPrice);
-    }
+
+    const currentCounter = booking.counterCount || 0;
+    const maxRounds = booking.maxCounterRounds || 2;
+    const reachedMaxRounds = currentCounter >= maxRounds;
+    const shouldBeFinal = Boolean(isFinalPrice) || reachedMaxRounds;
+
+    booking.isFinalPrice = shouldBeFinal;
     booking.negotiationStatus = 'quoted';
     booking.timeline.push({
-      title: booking.isFinalPrice ? 'চূড়ান্ত সর্বনিম্ন রেট নির্ধারণ' : 'মূল্য নির্ধারণ হয়েছে',
-      message: booking.isFinalPrice
-        ? `প্রোভাইডারদের সর্বনিম্ন ও চূড়ান্ত খরচ ৳${price} নির্ধারণ করা হয়েছে। এটি ফিক্সড রেট।`
+      title: shouldBeFinal ? 'চূড়ান্ত সর্বনিম্ন রেট নির্ধারণ' : 'মূল্য নির্ধারণ হয়েছে',
+      message: shouldBeFinal
+        ? `প্রোভাইডারদের সর্বনিম্ন ও চূড়ান্ত খরচ ৳${price} নির্ধারণ করা হয়েছে। আর কোনো দরদাম করার সুযোগ নেই, অফারটি গ্রহণ বা বাতিল করতে পারেন।`
         : `আপনার সেবাসমূহের মোট খরচ ৳${price} নির্ধারণ করা হয়েছে। অফারটি গ্রহণ বা দরদাম করতে পারেন।`,
       time: new Date(),
       status: 'quoted',
@@ -197,8 +201,10 @@ class HomeServiceService {
       try {
         await Notification.create({
           userId: booking.user,
-          title: 'সেবার মূল্য নির্ধারণ হয়েছে',
-          body: `আপনার অনুরোধকৃত সেবার মোট খরচ ৳${price} নির্ধারণ করা হয়েছে। অ্যাপে দেখে কনফার্ম করুন।`,
+          title: shouldBeFinal ? 'চূড়ান্ত মূল্য নির্ধারিত হয়েছে' : 'সেবার মূল্য নির্ধারণ হয়েছে',
+          body: shouldBeFinal
+            ? `আপনার অনুরোধের চূড়ান্ত সর্বনিম্ন রেট ৳${price} নির্ধারণ করা হয়েছে। গ্রহণ বা বাতিল করতে পারেন।`
+            : `আপনার অনুরোধকৃত সেবার মোট খরচ ৳${price} নির্ধারণ করা হয়েছে। অ্যাপে দেখে কনফার্ম করুন।`,
           type: 'HOME_SERVICE',
           data: {
             action: 'VIEW_BOOKING',
