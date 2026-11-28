@@ -22,6 +22,26 @@ class HouseHunterController {
   }
 
   /**
+   * User submits payment for request
+   * POST /api/house-hunter/:id/payment
+   */
+  async submitPayment(req, res, next) {
+    try {
+      const { id } = req.params;
+      const user = req.user || null;
+      const result = await houseHunterService.submitPayment(id, req.body, user);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: '১,০০০ টাকা সার্ভিস ফি পেমেন্ট সফল হয়েছে! টিম অবিলম্বে বাসা খোঁজার কাজ শুরু করবে।',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * User checks their own requests
    * GET /api/house-hunter/my-requests
    */

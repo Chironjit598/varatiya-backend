@@ -53,6 +53,31 @@ class HouseHunterService {
   }
 
   /**
+   * Submit payment for a House Hunter request
+   */
+  async submitPayment(requestId, paymentData, user = null) {
+    const doc = await HouseHunterRequest.findById(requestId);
+    if (!doc) {
+      const err = new Error('অনুরোধটি খুঁজে পাওয়া যায়নি');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const senderPhone = String(paymentData.senderPhone || paymentData.phone || '').trim();
+    const trxId = String(paymentData.trxId || paymentData.paymentTrxId || '').trim();
+
+    doc.paymentTrxId = trxId || senderPhone;
+    doc.status = 'PAID_ACTIVE';
+    doc.paidAt = new Date();
+    if (user && !doc.user) {
+      doc.user = user._id || user.id;
+    }
+    await doc.save();
+
+    return doc;
+  }
+
+  /**
    * Get user's own requests
    */
   async getMyRequests(phone, userId = null) {
