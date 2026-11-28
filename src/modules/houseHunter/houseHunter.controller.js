@@ -11,9 +11,13 @@ class HouseHunterController {
       const user = req.user || null;
       const result = await houseHunterService.submitRequest(req.body, user);
 
+      const msg = result.status === 'PAID_ACTIVE'
+        ? '১,০০০ টাকা বুকিং ফি পেমেন্ট সম্পন্ন হয়েছে এবং রিকোয়েস্টটি সক্রিয় করা হয়েছে! আমাদের টিম অবিলম্বে বাসা খোঁজার কাজ শুরু করবে।'
+        : 'আমরা আপনার রিকোয়েস্টটি গ্রহণ করেছি। আমাদের টিম খুব দ্রুত আপনার সাথে যোগাযোগ করবে।';
+
       return ApiResponse.success(res, {
         statusCode: 201,
-        message: 'আমরা আপনার রিকোয়েস্টটি গ্রহণ করেছি। আমাদের টিম খুব দ্রুত আপনার সাথে যোগাযোগ করবে। ফোনে বিস্তারিত আলোচনার পর ১,০০০ টাকা অগ্রিম বুকিং ফি প্রদান করার পর অর্ডারটি এক্সেপ্ট হবে।',
+        message: msg,
         data: result,
       });
     } catch (error) {

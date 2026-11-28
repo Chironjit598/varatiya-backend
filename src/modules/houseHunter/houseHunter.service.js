@@ -27,6 +27,9 @@ class HouseHunterService {
       targetSubAreas = [String(data.targetSubArea || data.subArea).trim()];
     }
 
+    const hasPayment = Boolean(data.senderPhone || data.paymentTrxId || data.trxId || data.status === 'PAID_ACTIVE');
+    const paymentTrxId = String(data.paymentTrxId || data.trxId || data.senderPhone || '').trim();
+
     const payload = {
       name: (data.name || 'ব্যবহারকারী').trim(),
       phone: cleanPhone,
@@ -44,7 +47,9 @@ class HouseHunterService {
       desiredMoveDate: (data.desiredMoveDate || 'চলতি মাস থেকে').trim(),
       specialRequirements: (data.specialRequirements || data.notes || '').trim(),
       feeAmount: 1000,
-      status: 'PENDING',
+      status: hasPayment ? 'PAID_ACTIVE' : (data.status || 'PENDING'),
+      paymentTrxId: hasPayment ? paymentTrxId : '',
+      paidAt: hasPayment ? new Date() : null,
       user: user?._id || user?.id || null,
     };
 
