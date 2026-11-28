@@ -42,6 +42,21 @@ const pendingVerificationSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    type: {
+      type: String,
+      enum: ['SUBSCRIPTION', 'HOUSE_HUNTER'],
+      default: 'SUBSCRIPTION',
+      index: true,
+    },
+    houseHunterData: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    houseHunterRequestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'HouseHunterRequest',
+      default: null,
+    },
     // TTL index: auto delete after 10 minutes if not matched
     createdAt: {
       type: Date,

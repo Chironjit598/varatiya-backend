@@ -26,6 +26,45 @@ class HouseHunterController {
   }
 
   /**
+   * Submit payment verification (automated SMS matching)
+   * POST /api/house-hunter/verify-payment
+   */
+  async submitPaymentVerification(req, res, next) {
+    try {
+      const user = req.user || null;
+      const result = await houseHunterService.submitPaymentVerification(req.body, user);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message || 'পেমেন্ট ভেরিফিকেশন প্রসেস করা হচ্ছে',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Poll payment verification status
+   * GET /api/house-hunter/payment/verify-status
+   */
+  async checkPaymentVerificationStatus(req, res, next) {
+    try {
+      const phone = req.query.phone || req.query.phoneNumber || '';
+      const user = req.user || null;
+      const result = await houseHunterService.checkPaymentVerificationStatus(phone, user);
+
+      return ApiResponse.success(res, {
+        statusCode: 200,
+        message: result.message || 'ভেরিফিকেশন স্ট্যাটাস',
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * User submits payment for request
    * POST /api/house-hunter/:id/payment
    */

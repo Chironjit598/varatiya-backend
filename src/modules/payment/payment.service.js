@@ -307,10 +307,61 @@ class PaymentService {
       };
     }
 
-    // Check if a customer is currently waiting in PendingVerification queue!
+    // 1. Check if this is a House Hunter 1000 Tk service fee payment
+    if (parsed.amount >= 950) {
+      const pendingHH = await PendingVerification.findOne({
+        phoneNumber: parsed.senderNumber,
+        type: 'HOUSE_HUNTER',
+        status: 'WAITING',
+      }).sort({ createdAt: -1 });
+
+      if (pendingHH) {
+        const HouseHunterRequest = require('../houseHunter/houseHunter.model');
+        const houseHunterService = require('../houseHunter/houseHunter.service');
+        let doc = null;
+
+        if (pendingHH.houseHunterRequestId) {
+          doc = await HouseHunterRequest.findById(pendingHH.houseHunterRequestId);
+          if (doc) {
+            doc.status = 'PAID_ACTIVE';
+            doc.paymentTrxId = (parsed.trxId || parsed.senderNumber || '').trim();
+            doc.paidAt = new Date();
+            await doc.save();
+          }
+        } else if (pendingHH.houseHunterData) {
+          doc = await houseHunterService.submitRequest({
+            ...pendingHH.houseHunterData,
+            status: 'PAID_ACTIVE',
+            paymentTrxId: (parsed.trxId || parsed.senderNumber || '').trim(),
+            senderPhone: parsed.senderNumber,
+          }, pendingHH.matchedUserId ? { _id: pendingHH.matchedUserId } : null);
+        }
+
+        incomingSmsDoc.isClaimed = true;
+        incomingSmsDoc.claimedAt = new Date();
+        if (doc?.user) incomingSmsDoc.claimedByUserId = doc.user;
+        await incomingSmsDoc.save();
+
+        pendingHH.status = 'MATCHED';
+        pendingHH.matchedSmsId = incomingSmsDoc._id;
+        if (doc) pendingHH.houseHunterRequestId = doc._id;
+        await pendingHH.save();
+
+        return {
+          success: true,
+          matchedImmediately: true,
+          type: 'HOUSE_HUNTER',
+          houseHunterRequest: doc,
+          sms: incomingSmsDoc,
+        };
+      }
+    }
+
+    // 2. Otherwise check if a customer is currently waiting in Subscription PendingVerification queue!
     const pending = await PendingVerification.findOne({
       phoneNumber: parsed.senderNumber,
       monthYear,
+      type: { $ne: 'HOUSE_HUNTER' },
       status: 'WAITING',
     }).sort({ createdAt: -1 });
 

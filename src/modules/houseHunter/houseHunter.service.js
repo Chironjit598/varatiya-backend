@@ -205,6 +205,188 @@ class HouseHunterService {
     }
     return { success: true, message: 'অনুরোধটি মুছে ফেলা হয়েছে' };
   }
+
+  /**
+   * Submit payment verification for House Hunter (Automated SMS matching like 50 Tk subscription)
+   */
+  async submitPaymentVerification(data, user = null) {
+    const paymentService = require('../payment/payment.service');
+    const IncomingSms = require('../payment/incomingSms.model');
+    const PendingVerification = require('../payment/pendingVerification.model');
+
+    const cleanPhone = paymentService.normalizePhoneNumber(data.senderPhone || data.phone);
+    if (!cleanPhone || cleanPhone.length !== 11 || !cleanPhone.startsWith('01')) {
+      const err = new Error('সঠিক ১১ ডিজিটের মোবাইল নম্বর দিন (যেমন: 017XXXXXXXX)');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const monthYear = paymentService.getCurrentMonthYear();
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // 1. Check if an unclaimed SMS >= 950 Tk arrived in the last 24 hours
+    const query = {
+      senderNumber: cleanPhone,
+      isClaimed: false,
+      amount: { $gte: 950 },
+      receivedAt: { $gte: twentyFourHoursAgo },
+    };
+
+    if (data.trxId && String(data.trxId).trim()) {
+      query.$or = [
+        { senderNumber: cleanPhone },
+        { trxId: String(data.trxId).trim() },
+      ];
+      delete query.senderNumber;
+    }
+
+    const unclaimedSms = await IncomingSms.findOne(query).sort({ receivedAt: -1 });
+
+    if (unclaimedSms) {
+      // Instant Match!
+      let doc = null;
+      if (data.requestId) {
+        doc = await HouseHunterRequest.findById(data.requestId);
+        if (doc) {
+          doc.status = 'PAID_ACTIVE';
+          doc.paymentTrxId = unclaimedSms.trxId || cleanPhone;
+          doc.paidAt = new Date();
+          await doc.save();
+        }
+      } else if (data.requestData) {
+        doc = await this.submitRequest({
+          ...data.requestData,
+          status: 'PAID_ACTIVE',
+          paymentTrxId: unclaimedSms.trxId || cleanPhone,
+          senderPhone: cleanPhone,
+        }, user);
+      }
+
+      unclaimedSms.isClaimed = true;
+      unclaimedSms.claimedAt = new Date();
+      if (doc?.user) unclaimedSms.claimedByUserId = doc.user;
+      await unclaimedSms.save();
+
+      return {
+        matched: true,
+        waiting: false,
+        message: '১,০০০ টাকা পেমেন্ট নিশ্চিত হয়েছে এবং আপনার বুকিং সক্রিয় হয়েছে!',
+        request: doc,
+      };
+    }
+
+    // 2. Not matched yet -> queue into PendingVerification for live matching!
+    await PendingVerification.findOneAndUpdate(
+      { phoneNumber: cleanPhone, type: 'HOUSE_HUNTER' },
+      {
+        monthYear,
+        type: 'HOUSE_HUNTER',
+        status: 'WAITING',
+        houseHunterData: data.requestData || null,
+        houseHunterRequestId: data.requestId || null,
+        matchedUserId: user?._id || user?.id || null,
+        createdAt: new Date(),
+      },
+      { upsert: true, new: true }
+    );
+
+    return {
+      matched: false,
+      waiting: true,
+      phoneNumber: cleanPhone,
+      pollIntervalMs: 4000,
+      message: 'পেমেন্ট ভেরিফাই করা হচ্ছে... বিকাশ/নগদ নেটওয়ার্কের কারণে ২০-৬০ সেকেন্ড সময় লাগতে পারে। পেজটিতে অপেক্ষা করুন।',
+    };
+  }
+
+  /**
+   * Poll verification status for House Hunter
+   */
+  async checkPaymentVerificationStatus(phoneNumber, user = null) {
+    const paymentService = require('../payment/payment.service');
+    const IncomingSms = require('../payment/incomingSms.model');
+    const PendingVerification = require('../payment/pendingVerification.model');
+
+    const cleanPhone = paymentService.normalizePhoneNumber(phoneNumber);
+    if (!cleanPhone) {
+      const err = new Error('ফোন নম্বর প্রয়োজন');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const pending = await PendingVerification.findOne({
+      phoneNumber: cleanPhone,
+      type: 'HOUSE_HUNTER',
+    }).sort({ createdAt: -1 });
+
+    if (pending && pending.status === 'MATCHED') {
+      const doc = pending.houseHunterRequestId
+        ? await HouseHunterRequest.findById(pending.houseHunterRequestId)
+        : null;
+
+      return {
+        matched: true,
+        waiting: false,
+        message: '১,০০০ টাকা পেমেন্ট নিশ্চিত হয়েছে!',
+        request: doc,
+      };
+    }
+
+    // Safeguard check on IncomingSms in case SMS arrived during polling
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const unclaimedSms = await IncomingSms.findOne({
+      senderNumber: cleanPhone,
+      isClaimed: false,
+      amount: { $gte: 950 },
+      receivedAt: { $gte: twentyFourHoursAgo },
+    }).sort({ receivedAt: -1 });
+
+    if (unclaimedSms) {
+      let doc = null;
+      if (pending?.houseHunterRequestId) {
+        doc = await HouseHunterRequest.findById(pending.houseHunterRequestId);
+        if (doc) {
+          doc.status = 'PAID_ACTIVE';
+          doc.paymentTrxId = unclaimedSms.trxId || cleanPhone;
+          doc.paidAt = new Date();
+          await doc.save();
+        }
+      } else if (pending?.houseHunterData) {
+        doc = await this.submitRequest({
+          ...pending.houseHunterData,
+          status: 'PAID_ACTIVE',
+          paymentTrxId: unclaimedSms.trxId || cleanPhone,
+          senderPhone: cleanPhone,
+        }, user || (pending.matchedUserId ? { _id: pending.matchedUserId } : null));
+      }
+
+      unclaimedSms.isClaimed = true;
+      unclaimedSms.claimedAt = new Date();
+      if (doc?.user) unclaimedSms.claimedByUserId = doc.user;
+      await unclaimedSms.save();
+
+      if (pending) {
+        pending.status = 'MATCHED';
+        pending.matchedSmsId = unclaimedSms._id;
+        if (doc) pending.houseHunterRequestId = doc._id;
+        await pending.save();
+      }
+
+      return {
+        matched: true,
+        waiting: false,
+        message: '১,০০০ টাকা পেমেন্ট নিশ্চিত হয়েছে!',
+        request: doc,
+      };
+    }
+
+    return {
+      matched: false,
+      waiting: true,
+      phoneNumber: cleanPhone,
+      message: 'পেমেন্ট ভেরিফাই করা হচ্ছে... অপেক্ষা করুন।',
+    };
+  }
 }
 
 module.exports = new HouseHunterService();
