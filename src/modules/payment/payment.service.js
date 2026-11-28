@@ -37,7 +37,7 @@ class PaymentService {
           appMode: process.env.APP_MODE || (process.env.IS_REVIEW_MODE === 'true' ? 'REVIEW' : 'LIVE'),
           bKashNumber: process.env.BKASH_PERSONAL_NUMBER || '01306070598',
           nagadNumber: process.env.NAGAD_PERSONAL_NUMBER || '01306070598',
-          whatsAppNumber: process.env.WHATSAPP_SUPPORT_NUMBER || '01726228790',
+          whatsAppNumber: process.env.WHATSAPP_SUPPORT_NUMBER || '01312757668',
           feeAmount: Number(env.CONNECTION_FEE) || 50,
           freeGuestLimit: (env.GUEST_FREE_CONTACT_LIMIT !== undefined && env.GUEST_FREE_CONTACT_LIMIT !== '')
             ? Number(env.GUEST_FREE_CONTACT_LIMIT)
@@ -629,7 +629,7 @@ class PaymentService {
       currentMonthYear: monthYear,
       bKashNumber: cfg.bKashNumber || process.env.BKASH_PERSONAL_NUMBER || '01306070598',
       nagadNumber: cfg.nagadNumber || process.env.NAGAD_PERSONAL_NUMBER || '01306070598',
-      whatsAppNumber: cfg.whatsAppNumber || process.env.WHATSAPP_SUPPORT_NUMBER || '01726228790',
+      whatsAppNumber: cfg.whatsAppNumber || process.env.WHATSAPP_SUPPORT_NUMBER || '01312757668',
       paymentType: 'Send Money (পার্সোনাল)',
       title: `পুরো ${monthName} মাস আনলিমিটেড বাড়িওয়ালার ডিরেক্ট নম্বর দেখুন`,
       complianceHeading: 'মাঠপর্যায়ে টু-লেট সংগ্রহ ও বাড়িওয়ালার সাথে সরাসরি কানেকশন সার্ভিস চার্জ',
